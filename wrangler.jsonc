@@ -50,7 +50,7 @@
   ],
   "vars": {
     "APP_ENV": "development",
-    "LLM_MODE": "mock",
+    "LLM_MODE": "live",
     "MAX_ACTIVE_SESSIONS": "20",
     "SUPPORT_EMAIL": "you@example.com",
     "CHAOS": ""

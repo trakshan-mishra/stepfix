@@ -100,12 +100,12 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
       );
     }
 
-    const useMock = this.env.LLM_MODE === "mock";
+    const useMock = (this.env.LLM_MODE as string) === "mock";
     const model = useMock
       ? createMockModel()
       : (() => {
           const workersai = createWorkersAI({ binding: this.env.AI });
-          return workersai("@cf/moonshotai/kimi-k2.7-code", {
+          return workersai("@cf/zai-org/glm-4.7-flash", {
             sessionAffinity: this.sessionAffinity
           });
         })();

@@ -2,18 +2,18 @@
 // Secrets are set via `wrangler secret put` and are available at runtime.
 declare global {
   interface Env {
-    TURNSTILE_SECRET_KEY?: string;
-    SESSION_SIGNING_KEY?: string;
-    ADMIN_TOKEN?: string;
-    GROQ_API_KEY?: string;
-    GEMINI_API_KEY?: string;
-    GEMINI_FLASH_MODEL?: string;
-    GEMINI_FLASH_LITE_MODEL?: string;
-    ZAI_API_KEY?: string;
-    ZAI_BASE_URL?: string;
-    CF_ACCOUNT_ID?: string;
-    AI_GATEWAY_ID?: string;
-    OPIK_API_KEY?: string;
+    TURNSTILE_SECRET_KEY: string;
+    SESSION_SIGNING_KEY: string;
+    ADMIN_TOKEN: string;
+    GROQ_API_KEY: string;
+    GEMINI_API_KEY: string;
+    GEMINI_FLASH_MODEL: string;
+    GEMINI_FLASH_LITE_MODEL: string;
+    ZAI_API_KEY: string;
+    ZAI_BASE_URL: string;
+    CF_ACCOUNT_ID: string;
+    AI_GATEWAY_ID: string;
+    OPIK_API_KEY: string;
   }
 }
 

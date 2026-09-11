@@ -973,23 +973,50 @@ const LibraryDetail = lazy(() => import("./routes/library-detail"));
 const Home = lazy(() => import("./routes/home"));
 const Privacy = lazy(() => import("./routes/privacy"));
 
+function getPath() {
+  return window.location.pathname;
+}
+
+function getSessionFromStorage(): { sessionId: string; token: string } | null {
+  try {
+    const token = localStorage.getItem("stepfix:token");
+    const sessionId = localStorage.getItem("stepfix:session");
+    if (token && sessionId) return { sessionId, token };
+  } catch {
+    // localStorage unavailable
+  }
+  return null;
+}
+
 function Router() {
-  const path = window.location.pathname;
-  const [session, setSession] = useState<{
-    sessionId: string;
-    token: string;
-  } | null>(null);
+  const [path, setPath] = useState(getPath);
+  const [session, setSession] = useState(getSessionFromStorage);
+
+  useEffect(() => {
+    const onPop = () => setPath(getPath());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   const onStart = useCallback((sessionId: string, token: string) => {
+    try {
+      localStorage.setItem("stepfix:token", token);
+      localStorage.setItem("stepfix:session", sessionId);
+    } catch {
+      // ignore
+    }
     setSession({ sessionId, token });
     window.history.pushState({}, "", `/session/${sessionId}`);
+    setPath(`/session/${sessionId}`);
   }, []);
 
   if (path === "/library") return <LibraryList />;
   const libMatch = path.match(/^\/library\/(.+)$/);
   if (libMatch) return <LibraryDetail id={decodeURIComponent(libMatch[1])} />;
   if (path === "/privacy") return <Privacy />;
-  if (session)
+
+  const sessionMatch = path.match(/^\/session\/(.+)$/);
+  if (sessionMatch && session) {
     return (
       <Chat
         key={session.sessionId}
@@ -997,13 +1024,17 @@ function Router() {
         token={session.token}
       />
     );
-  if (
-    path === "/" ||
-    !(path.startsWith("/library") || path.startsWith("/privacy"))
-  ) {
-    return <Home onStart={onStart} />;
   }
-  return <Chat />;
+
+  if (sessionMatch && !session) {
+    // page reloaded on /session/:id but no token — go home
+    window.history.replaceState({}, "", "/");
+    setPath("/");
+  }
+
+  if (path === "/") return <Home onStart={onStart} />;
+
+  return <Home onStart={onStart} />;
 }
 
 export default function App() {
