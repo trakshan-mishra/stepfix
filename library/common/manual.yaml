@@ -1,0 +1,93 @@
+# common/manual.yaml — 3 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: manual.dev.try_again
+    version: 1
+    title: Try the tool again in a new terminal
+    kind: manual
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+      - windows11
+      - windows10
+    shell: gui
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - Close all terminal windows and open a new one.
+      - Run the tool the way you did before.
+      - Tell me whether it works now.
+    when_to_use: After a PATH change, or when the tool is found but still failing.
+    explanation: "Terminals read PATH when they start, so changes only show up in new terminal windows. Close and reopen yours to pick up the fix."
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: RESOLVED
+      - default: ESCALATE
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.reboot
+    version: 1
+    title: Restart your computer
+    kind: manual
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+      - windows11
+      - windows10
+    shell: gui
+    category: system
+    risk: disruptive
+    needs_admin: false
+    manual_steps:
+      - Save your work and close your apps.
+      - Restart the computer (not Shut down; Restart).
+      - Come back to this page afterwards. Your session will still be here.
+    when_to_use: When a driver is stuck or an update needs a restart.
+    explanation: A restart reloads every driver and service from scratch. It fixes stuck hardware more reliably than any command.
+    expect: []
+    next:
+      - default: FLOW_ENTRY
+    undo: n/a
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.router_restart
+    version: 1
+    title: Restart your router
+    kind: manual
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+      - windows11
+      - windows10
+    shell: gui
+    category: wifi
+    risk: disruptive
+    needs_admin: false
+    manual_steps:
+      - Unplug the router's power cable (and the modem's, if separate).
+      - Wait 30 seconds, then plug them back in.
+      - Wait about 2 minutes for the lights to settle, then reconnect to Wi-Fi.
+      - Tell me whether websites load now.
+    when_to_use: When the computer looks fine but the router isn't handing out addresses or DNS.
+    explanation: Routers get stuck like any computer. A restart clears their memory and usually fixes address and DNS problems for every device at home.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: RESOLVED
+      - default: ESCALATE
+    undo: n/a
+    sources: []
+    reviewed_by: null
+    tested_on: []

@@ -1,0 +1,506 @@
+# linux/bluetooth.yaml — 15 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: linux.bt.rfkill_list
+    version: 1
+    title: Check if Bluetooth is blocked
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: rfkill list bluetooth
+    when_to_use: First check for any Bluetooth problem on Linux.
+    explanation: |
+      Linux can switch radios off in software ("soft block") or through a physical switch or
+      BIOS setting ("hard block"). This lists the Bluetooth radios the system knows about and
+      whether either block is on. It only reads status.
+    expect:
+      - pattern: "Soft blocked: yes"
+        meaning: Bluetooth is switched off in software. We can switch it back on.
+      - pattern: "Hard blocked: yes"
+        meaning: A physical switch, function key or BIOS setting is turning Bluetooth off.
+      - pattern: "Soft blocked: no\\s*\\n\\s*Hard blocked: no"
+        meaning: Nothing is blocking Bluetooth.
+      - pattern: ^\s*$
+        meaning: No Bluetooth radio was found at all.
+    next:
+      - when:
+          output_matches: "Soft blocked: yes"
+        goto: linux.bt.rfkill_unblock
+      - when:
+          output_matches: "Hard blocked: yes"
+        goto: manual.linux.bt.hard_block
+      - when:
+          output_empty: true
+        goto: linux.bt.usb_list
+      - default: linux.bt.service_status
+    undo: null
+    sources:
+      - title: ArchWiki — Bluetooth
+        url: https://wiki.archlinux.org/title/Bluetooth
+        license: GFDL-1.3-or-later
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.rfkill_unblock
+    version: 1
+    title: Switch Bluetooth back on (remove the software block)
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: sudo rfkill unblock bluetooth
+    when_to_use: 'When rfkill shows "Soft blocked: yes" for Bluetooth.'
+    explanation: |
+      Removes the software block that is keeping the Bluetooth radio off. It is the same as
+      flipping Bluetooth back on, just more direct. It asks for your password because it
+      changes a system setting. It prints nothing when it works.
+    expect:
+      - pattern: ^\s*$
+        meaning: No output means it worked.
+      - pattern: Operation not permitted
+        meaning: It needs administrator rights; make sure sudo is at the start.
+    next:
+      - default: linux.bt.controller_show
+    undo: sudo rfkill block bluetooth
+    sources:
+      - title: ArchWiki — Bluetooth
+        url: https://wiki.archlinux.org/title/Bluetooth
+        license: GFDL-1.3-or-later
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.service_status
+    version: 1
+    title: Check the Bluetooth service
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: systemctl status bluetooth --no-pager
+    when_to_use: When nothing blocks Bluetooth but it still doesn't work.
+    explanation: |
+      Bluetooth on Linux needs a background program (the bluetooth service, part of BlueZ)
+      to be running. This shows whether it is running, stopped, or not installed, plus its
+      last few log lines. It only reads status.
+    expect:
+      - pattern: "Active: active \\(running\\)"
+        meaning: The Bluetooth service is running.
+      - pattern: "Active: inactive \\(dead\\)"
+        meaning: The Bluetooth service is stopped.
+      - pattern: "Loaded: loaded \\([^;]+; disabled"
+        meaning: The service is set not to start when the computer boots.
+      - pattern: could not be found|not-found
+        meaning: The Bluetooth service (BlueZ) doesn't seem to be installed.
+    next:
+      - when:
+          output_matches: could not be found|not-found
+        goto: linux.bt.bluez_installed
+      - when:
+          output_matches: "Active: inactive|Active: failed"
+        goto: linux.bt.service_enable
+      - when:
+          output_matches: "Active: active \\(running\\)"
+        goto: linux.bt.controller_show
+      - default: linux.bt.journal
+    undo: null
+    sources:
+      - title: ArchWiki — Bluetooth
+        url: https://wiki.archlinux.org/title/Bluetooth
+        license: GFDL-1.3-or-later
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.service_enable
+    version: 1
+    title: Start the Bluetooth service and keep it on at boot
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: sudo systemctl enable --now bluetooth
+    when_to_use: When the bluetooth service is stopped or disabled.
+    explanation: |
+      Starts the Bluetooth service now and sets it to start automatically every time the
+      computer boots. Without it running, no Bluetooth device can connect.
+    expect:
+      - pattern: Created symlink|^\s*$|Synchronizing state
+        meaning: It worked.
+      - pattern: Failed to (start|enable)
+        meaning: The service failed to start; the logs will say why.
+    next:
+      - when:
+          output_matches: Failed to (start|enable)
+        goto: linux.bt.journal
+      - default: linux.bt.service_status
+    undo: sudo systemctl disable --now bluetooth
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.service_restart
+    version: 1
+    title: Restart the Bluetooth service
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: restart
+    needs_admin: true
+    command: sudo systemctl restart bluetooth
+    when_to_use: When the service runs but devices won't connect or the adapter seems stuck.
+    explanation: |
+      Stops and starts the Bluetooth service, like turning it off and on again. Connected
+      Bluetooth devices disconnect for a few seconds and usually reconnect on their own.
+    expect:
+      - pattern: ^\s*$
+        meaning: No output means it restarted.
+    next:
+      - default: linux.bt.controller_show
+    undo: n/a — restarts the service; devices reconnect on their own
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.controller_show
+    version: 1
+    title: Check the Bluetooth adapter is powered on
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: bluetoothctl show
+    when_to_use: After the service is running, to see if the adapter is detected and powered.
+    explanation: |
+      Asks the Bluetooth service about your Bluetooth adapter: whether it's there and whether
+      it's powered on. If it hangs on "Waiting to connect to bluetoothd", press Ctrl+C;
+      that means the service isn't running.
+    expect:
+      - pattern: "Powered: yes"
+        meaning: The adapter is on.
+      - pattern: "Powered: no"
+        meaning: The adapter is detected but switched off.
+      - pattern: No default controller available
+        meaning: The Bluetooth service can't see any adapter.
+      - pattern: Waiting to connect to bluetoothd
+        meaning: The Bluetooth service isn't running.
+    next:
+      - when:
+          output_matches: Waiting to connect to bluetoothd
+        goto: linux.bt.service_status
+      - when:
+          output_matches: No default controller available
+        goto: linux.bt.usb_list
+      - when:
+          output_matches: "Powered: no"
+        goto: linux.bt.power_on
+      - when:
+          output_matches: "Powered: yes"
+        goto: manual.linux.bt.try_connect
+      - default: linux.bt.journal
+    undo: null
+    sources:
+      - title: ArchWiki — Bluetooth
+        url: https://wiki.archlinux.org/title/Bluetooth
+        license: GFDL-1.3-or-later
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.power_on
+    version: 1
+    title: Power on the Bluetooth adapter
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: safe_change
+    needs_admin: false
+    command: bluetoothctl power on
+    when_to_use: 'When bluetoothctl show says "Powered: no".'
+    explanation: |
+      Tells the Bluetooth service to switch the adapter on. It's the same as the Bluetooth
+      toggle in Settings. If something is blocking the radio, it will say so.
+    expect:
+      - pattern: Changing power on succeeded
+        meaning: The adapter is now on.
+      - pattern: Blocked|Failed to set power on
+        meaning: Something is blocking the radio.
+    next:
+      - when:
+          output_matches: Blocked|Failed to set power on
+        goto: linux.bt.rfkill_list
+      - default: manual.linux.bt.try_connect
+    undo: bluetoothctl power off
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.usb_list
+    version: 1
+    title: Look for the Bluetooth hardware
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: lsusb | grep -i -E "bluetooth|wireless"
+    when_to_use: When no Bluetooth adapter is detected at all.
+    explanation: |
+      Most laptop Bluetooth chips are connected over USB inside the machine. This lists USB
+      devices and keeps only lines that mention Bluetooth or wireless. An empty result means
+      the system can't see the chip, which points to hardware, BIOS settings or drivers.
+    expect:
+      - pattern: \S
+        meaning: The Bluetooth hardware is visible to the system.
+      - pattern: ^\s*$
+        meaning: No Bluetooth hardware is visible over USB.
+    next:
+      - default: linux.bt.kernel_log
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.kernel_log
+    version: 1
+    title: Check the system log for Bluetooth driver errors
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: true
+    command: sudo dmesg | grep -i -E "bluetooth|btusb|hci0|firmware"
+    when_to_use: When the adapter is missing or behaves oddly, to find driver or firmware errors.
+    explanation: |
+      The kernel keeps a log of hardware events since boot. This shows only the lines about
+      Bluetooth, its USB driver (btusb) and firmware. Missing firmware or timeouts show up
+      here. It needs your password because the kernel log is restricted on Ubuntu.
+    expect:
+      - pattern: firmware.*(not found|failed|error)|Failed to load firmware|direct firmware load .* failed
+        meaning: The Bluetooth chip's firmware didn't load.
+      - pattern: "hci0: .*(timeout|timed out)"
+        meaning: The adapter isn't responding to the driver.
+    next:
+      - when:
+          output_matches: firmware.*(not found|failed|error)|Failed to load firmware|direct firmware load .* failed
+        goto: ESCALATE
+      - when:
+          output_matches: "hci0: .*(timeout|timed out)"
+        goto: linux.bt.reload_driver
+      - default: linux.bt.journal
+    undo: null
+    sources:
+      - title: ArchWiki — Bluetooth (troubleshooting)
+        url: https://wiki.archlinux.org/title/Bluetooth
+        license: GFDL-1.3-or-later
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.journal
+    version: 1
+    title: Read the Bluetooth service log
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: true
+    command: sudo journalctl -u bluetooth -b --no-pager -n 50
+    when_to_use: When the service runs but something still fails and we need its error messages.
+    explanation: |
+      Shows the last 50 log lines from the Bluetooth service since this boot. Error messages
+      here usually name the exact problem, such as a failed setting or a device refusing to pair.
+    expect:
+      - pattern: Failed|Error|error
+        meaning: There are errors worth reading in these lines.
+    next:
+      - default: linux.bt.service_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.reload_driver
+    version: 1
+    title: Reload the Bluetooth USB driver
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: bluetooth
+    risk: disruptive
+    needs_admin: true
+    compound: true
+    command: sudo modprobe -r btusb && sudo modprobe btusb
+    when_to_use: When the adapter times out or is stuck, and restarting the service didn't help.
+    explanation: |
+      Unloads the Bluetooth USB driver and loads it again, like unplugging and replugging the
+      chip. All Bluetooth devices disconnect. If it says the module is in use, a restart of
+      the computer does the same thing more reliably.
+    expect:
+      - pattern: ^\s*$
+        meaning: The driver reloaded.
+      - pattern: is in use
+        meaning: The driver is busy; restart the computer instead.
+    next:
+      - when:
+          output_matches: is in use
+        goto: manual.reboot
+      - default: linux.bt.controller_show
+    undo: If Bluetooth stays missing, restart the computer; the driver loads again at boot.
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.bluez_installed
+    version: 1
+    title: Check that BlueZ (the Bluetooth software) is installed
+    kind: command
+    os:
+      - ubuntu
+      - debian
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: dpkg -s bluez | grep -i -E "^(status|version)"
+    when_to_use: When the bluetooth service can't be found.
+    explanation: |
+      Asks the package manager whether BlueZ, the standard Linux Bluetooth software, is
+      installed, and which version. It only reads the package database.
+    expect:
+      - pattern: "Status: install ok installed"
+        meaning: BlueZ is installed.
+      - pattern: is not installed
+        meaning: BlueZ is not installed.
+    next:
+      - when:
+          output_matches: is not installed
+        goto: linux.bt.install_bluez
+      - default: linux.bt.service_enable
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.bt.install_bluez
+    version: 1
+    title: Install BlueZ from Ubuntu's official packages
+    kind: command
+    os:
+      - ubuntu
+      - debian
+    shell: bash
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: sudo apt install bluez
+    when_to_use: When dpkg says bluez is not installed.
+    explanation: |
+      Installs BlueZ from your distribution's official, signed package repositories. It asks
+      you to confirm before installing. It downloads only from the same place your normal
+      system updates come from.
+    expect:
+      - pattern: Setting up bluez|is already the newest version
+        meaning: BlueZ is installed.
+    next:
+      - default: linux.bt.service_enable
+    undo: sudo apt remove bluez
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.linux.bt.hard_block
+    version: 1
+    title: Turn off the hardware switch for wireless
+    kind: manual
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: gui
+    category: bluetooth
+    risk: safe_change
+    needs_admin: false
+    manual_steps:
+      - Look for a key with an antenna or airplane icon, often Fn plus one of F2–F12, and press it once.
+      - Check the sides of the laptop for a small wireless on/off switch.
+      - If neither exists, the block may be a BIOS/UEFI setting. That's a job for a person, so tell me if the key didn't help.
+    when_to_use: 'When rfkill shows "Hard blocked: yes".'
+    explanation: |
+      A hard block is set by hardware, a function key or the BIOS, not by Linux, so no command
+      can remove it. Pressing the wireless key or flipping the switch is the usual fix.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: linux.bt.rfkill_list
+      - default: ESCALATE
+    undo: Press the same key or flip the switch back.
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.linux.bt.try_connect
+    version: 1
+    title: Try connecting your Bluetooth device now
+    kind: manual
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: gui
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - Open Settings → Bluetooth and make sure Bluetooth is on.
+      - Put your device (headphones, mouse…) in pairing mode.
+      - Select it in the list and connect. If it was paired before and won't connect, click it and choose "Remove Device", then pair again.
+    when_to_use: After the adapter is on, to check if the original problem is fixed.
+    explanation: |
+      Now that the adapter is working, this checks the thing you actually care about:
+      connecting your device. Removing and re-pairing clears old pairing data that often
+      breaks after updates.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: RESOLVED
+      - default: linux.bt.journal
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []

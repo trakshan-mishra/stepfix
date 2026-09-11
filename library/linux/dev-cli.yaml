@@ -1,0 +1,118 @@
+# linux/dev-cli.yaml — 3 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: linux.dev.which
+    version: 1
+    title: Find where a command-line tool is installed
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: command -v {{tool}}
+    params:
+      tool:
+        type: enum
+        values:
+          - claude
+          - node
+          - npm
+          - npx
+          - python3
+          - pip
+          - git
+          - docker
+          - code
+        description: The tool that says "command not found"
+    when_to_use: First check when a tool says "command not found".
+    explanation: |
+      Asks your shell where it finds this tool. If it prints a path, the shell can find it.
+      If it prints nothing, the tool is either not installed or installed in a folder your
+      shell doesn't search (your PATH).
+    expect:
+      - pattern: ^/|^\$HOME/
+        meaning: The shell finds the tool at this path.
+      - pattern: ^\s*$
+        meaning: The shell can't find the tool.
+    next:
+      - when:
+          output_empty: true
+        goto: common.dev.npm_prefix
+      - default: manual.dev.try_again
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.dev.path
+    version: 1
+    title: List the folders your shell searches (PATH)
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: echo "$PATH" | tr ':' '\n'
+    when_to_use: To check whether a tool's install folder is on PATH.
+    explanation: |
+      Your shell looks for commands only in the folders listed in PATH. This prints them one
+      per line so we can see whether the folder your tool was installed into is missing.
+    expect:
+      - pattern: \.npm-global/bin|\.local/bin
+        meaning: A user-level tools folder is on your PATH.
+    next:
+      - default: linux.dev.add_npm_bin_to_path
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.dev.add_npm_bin_to_path
+    version: 1
+    title: Add npm's global tools folder to PATH
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: dev_cli
+    risk: safe_change
+    needs_admin: false
+    command: echo 'export PATH="{{prefix_path}}/bin:$PATH"' >> {{rc_file}}
+    params:
+      prefix_path:
+        type: regex
+        pattern: ^\$HOME(/[A-Za-z0-9._-]+)+$
+        description: npm prefix from the previous step, e.g. $HOME/.npm-global
+      rc_file:
+        type: enum
+        values:
+          - ~/.bashrc
+          - ~/.zshrc
+        description: Your shell's startup file (bash or zsh)
+    when_to_use: When npm's prefix is under $HOME and its bin folder is missing from PATH.
+    explanation: |
+      Adds one line to your shell's startup file so every new terminal also searches npm's
+      global tools folder. It doesn't install or delete anything. Run it once only; running
+      it twice adds a duplicate line (harmless but untidy). Open a new terminal afterwards.
+    expect:
+      - pattern: ^\s*$
+        meaning: The line was added. Open a new terminal window next.
+    next:
+      - default: linux.dev.which
+    undo: Open the file (e.g. ~/.bashrc) in a text editor and delete the last line that starts with export PATH=
+    sources:
+      - title: npm Docs — Resolving EACCES permissions errors
+        url: https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally
+        license: link-only
+    reviewed_by: null
+    tested_on: []

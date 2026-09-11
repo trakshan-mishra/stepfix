@@ -1,0 +1,82 @@
+# common/dev-cli.yaml — 2 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: common.dev.node_version
+    version: 1
+    title: Check your Node.js version
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+      - windows11
+      - windows10
+    shell: any
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: node --version
+    when_to_use: When an npm-installed tool fails, to confirm Node is installed and recent.
+    explanation: |
+      Prints the installed Node.js version. Many command-line tools need a recent Node.
+      If Node itself isn't found, that's the first thing to fix.
+    expect:
+      - pattern: ^v\d+\.
+        meaning: Node.js is installed; this is its version.
+      - pattern: not found|not recognized
+        meaning: Node.js isn't installed or isn't on PATH.
+    next:
+      - when:
+          output_matches: not found|not recognized
+        goto: ESCALATE
+      - default: common.dev.npm_prefix
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: common.dev.npm_prefix
+    version: 1
+    title: Find where npm installs global tools
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+      - windows11
+      - windows10
+    shell: any
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: npm config get prefix
+    when_to_use: When a globally installed npm tool isn't found.
+    explanation: |
+      Prints the folder npm installs "global" tools into. On Linux the tools go in its bin
+      subfolder; on Windows directly in it. If that folder isn't on PATH, your terminal can't
+      find the tools.
+    expect:
+      - pattern: ^\$HOME/
+        meaning: npm installs tools under your home folder.
+      - pattern: ^/usr
+        meaning: npm installs tools in a system folder.
+      - pattern: "%APPDATA%|%USERPROFILE%|AppData\\\\Roaming\\\\npm"
+        meaning: npm installs tools in your Windows user folder.
+      - pattern: not found|not recognized
+        meaning: npm isn't installed or isn't on PATH.
+    next:
+      - when:
+          output_matches: not found|not recognized
+        goto: common.dev.node_version
+      - when:
+          output_matches: ^\$HOME/
+        goto: linux.dev.path
+      - when:
+          output_matches: "%APPDATA%|%USERPROFILE%|AppData"
+        goto: win.dev.path
+      - default: ESCALATE
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []

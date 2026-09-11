@@ -1,0 +1,303 @@
+# windows/wifi.yaml — 10 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: win.net.wlan_interfaces
+    version: 1
+    title: Check your Wi-Fi connection details
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: netsh wlan show interfaces
+    when_to_use: First check for Wi-Fi problems on Windows.
+    explanation: |
+      Shows your Wi-Fi adapter, whether it's connected, to which network, and the signal
+      strength. It only reads information. On newer Windows 11 builds it may ask for
+      Location permission, because Wi-Fi details can reveal where you are.
+    expect:
+      - pattern: State\s*:\s*connected
+        meaning: Wi-Fi is connected.
+      - pattern: State\s*:\s*disconnected
+        meaning: Wi-Fi isn't connected to a network.
+      - pattern: no wireless interface
+        meaning: Windows can't see a Wi-Fi adapter.
+      - pattern: location
+        meaning: Windows wants Location permission to show Wi-Fi details.
+    next:
+      - when:
+          output_matches: no wireless interface
+        goto: win.net.adapters
+      - when:
+          output_matches: State\s*:\s*disconnected
+        goto: manual.win.net.connect
+      - when:
+          output_matches: State\s*:\s*connected
+        goto: win.net.ping_ip
+      - default: win.net.adapters
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.net.adapters
+    version: 1
+    title: List network adapters
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize
+    when_to_use: When Wi-Fi seems missing or disabled.
+    explanation: |
+      Lists your network adapters (Wi-Fi, Ethernet) and whether each is Up, Disconnected or
+      Disabled. It only reads information.
+    expect:
+      - pattern: Wi-?Fi\S*\s+Disabled
+        meaning: The Wi-Fi adapter is turned off in Windows.
+      - pattern: Wi-?Fi\S*\s+Up
+        meaning: The Wi-Fi adapter is on and connected.
+    next:
+      - when:
+          output_matches: Wi-?Fi\S*\s+Disabled
+        goto: win.net.enable_adapter
+      - default: manual.win.bt.quick_settings
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.net.enable_adapter
+    version: 1
+    title: Turn the Wi-Fi adapter back on
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: wifi
+    risk: safe_change
+    needs_admin: true
+    command: Enable-NetAdapter -Name "{{adapter}}"
+    params:
+      adapter:
+        type: regex
+        pattern: ^[A-Za-z0-9 ._-]{1,40}$
+        description: Adapter name from the list, e.g. Wi-Fi
+    when_to_use: When the Wi-Fi adapter shows Disabled.
+    explanation: |
+      Re-enables the Wi-Fi adapter Windows had switched off. Run it in a terminal opened as
+      administrator.
+    expect:
+      - pattern: ^\s*$
+        meaning: The adapter is enabled.
+    next:
+      - default: win.net.wlan_interfaces
+    undo: Disable-NetAdapter -Name "{{adapter}}"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.win.net.connect
+    version: 1
+    title: Connect to your Wi-Fi network
+    kind: manual
+    os:
+      - windows11
+      - windows10
+    shell: gui
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    deep_link: ms-settings:network-wifi
+    manual_steps:
+      - Click the network icon on the taskbar and open the Wi-Fi list (the arrow next to Wi-Fi).
+      - Pick your network and enter its password. Type it there, never in this chat.
+      - Tell me whether it connected.
+    when_to_use: When Wi-Fi is on but disconnected.
+    explanation: Your adapter works but isn't joined to a network. Joining through Windows keeps the password on your PC.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: win.net.ping_ip
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.net.ping_ip
+    version: 1
+    title: Test the internet connection by address
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: ping -n 4 1.1.1.1
+    when_to_use: To tell apart "no internet" from "names don't resolve".
+    explanation: |
+      Sends four small test messages to a well-known public server by its number, skipping
+      name lookup. Answers mean your internet works and the problem is probably DNS.
+    expect:
+      - pattern: Received = 4|Received = 3
+        meaning: The internet is reachable.
+      - pattern: 100% loss|General failure|unreachable|transmit failed
+        meaning: The internet isn't reachable.
+    next:
+      - when:
+          output_matches: 100% loss|General failure|unreachable|transmit failed
+        goto: manual.router_restart
+      - default: win.net.dns_test
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.net.dns_test
+    version: 1
+    title: Test that website names resolve (DNS)
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: Resolve-DnsName example.com -Type A
+    when_to_use: When the internet works by address but websites don't load.
+    explanation: |
+      Asks Windows to turn a website name into an address (DNS). If this fails while the
+      address test worked, DNS is the problem.
+    expect:
+      - pattern: example\.com\s+A\s+\d+
+        meaning: Name lookup works.
+      - pattern: DNS name does not exist|timeout period expired|DNS server failure|not found
+        meaning: Name lookup is failing.
+    next:
+      - when:
+          output_matches: DNS name does not exist|timeout period expired|DNS server failure|not found
+        goto: win.net.flush_dns
+      - default: manual.win.net.try_browse
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.net.flush_dns
+    version: 1
+    title: Clear the DNS cache
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: wifi
+    risk: safe_change
+    needs_admin: false
+    command: ipconfig /flushdns
+    when_to_use: When name lookup fails or returns stale results.
+    explanation: |
+      Clears Windows' list of recently looked-up website addresses. A stale entry can stop
+      sites loading. The list rebuilds itself automatically.
+    expect:
+      - pattern: Successfully flushed
+        meaning: The cache was cleared.
+      - pattern: requires elevation
+        meaning: Run it in a terminal opened as administrator.
+    next:
+      - default: win.net.dns_test_after_flush
+    undo: n/a — the cache refills automatically
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.net.dns_test_after_flush
+    version: 1
+    title: Test name lookup again
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: Resolve-DnsName example.com -Type A
+    when_to_use: After clearing the DNS cache.
+    explanation: "Same test as before. If a name and address print now, clearing the DNS cache fixed the problem."
+    expect:
+      - pattern: example\.com\s+A\s+\d+
+        meaning: Name lookup works now.
+    next:
+      - when:
+          output_matches: example\.com\s+A\s+\d+
+        goto: manual.win.net.try_browse
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.net.restart_adapter
+    version: 1
+    title: Restart the Wi-Fi adapter
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: wifi
+    risk: disruptive
+    needs_admin: true
+    command: Restart-NetAdapter -Name "{{adapter}}"
+    params:
+      adapter:
+        type: regex
+        pattern: ^[A-Za-z0-9 ._-]{1,40}$
+        description: Adapter name, e.g. Wi-Fi
+    when_to_use: When the adapter is up but connections keep failing.
+    explanation: |
+      Turns the Wi-Fi adapter off and on. Your connection drops for a few seconds. Run it in
+      a terminal opened as administrator.
+    expect:
+      - pattern: ^\s*$
+        meaning: The adapter restarted.
+    next:
+      - default: win.net.wlan_interfaces
+    undo: n/a — the adapter comes back on by itself
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.win.net.try_browse
+    version: 1
+    title: Try loading a website
+    kind: manual
+    os:
+      - windows11
+      - windows10
+    shell: gui
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - Open a new browser tab and load a site you use often.
+      - Tell me whether it loads.
+    when_to_use: After network tests pass, to confirm the original problem is fixed.
+    explanation: "This checks the thing you care about, not just a test. If a normal site loads, your connection is working again."
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: RESOLVED
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []

@@ -1,0 +1,106 @@
+# windows/dev-cli.yaml — 3 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: win.dev.where
+    version: 1
+    title: Find where a command-line tool is installed
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: where.exe {{tool}}
+    params:
+      tool:
+        type: enum
+        values:
+          - claude
+          - node
+          - npm
+          - npx
+          - python
+          - pip
+          - git
+          - docker
+          - code
+        description: The tool that says "not recognized"
+    when_to_use: First check when a tool is "not recognized as a command".
+    explanation: |
+      Asks Windows where it finds this tool. We use where.exe because in PowerShell plain
+      "where" means something else. A path means Windows finds it; "Could not find" means
+      it's not installed or not on PATH.
+    expect:
+      - pattern: Could not find files
+        meaning: Windows can't find the tool on PATH.
+      - pattern: ^[A-Za-z]:\\|^%
+        meaning: Windows finds the tool at this path.
+    next:
+      - when:
+          output_matches: Could not find files
+        goto: common.dev.npm_prefix
+      - default: manual.dev.try_again
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.dev.path
+    version: 1
+    title: List the folders Windows searches (PATH)
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: $env:Path -split ';'
+    when_to_use: To check whether npm's folder is on PATH.
+    explanation: |
+      Windows looks for commands only in the folders listed in PATH. This prints them one per
+      line so we can see whether npm's folder is missing.
+    expect:
+      - pattern: AppData\\Roaming\\npm|%APPDATA%\\npm
+        meaning: npm's folder is on your PATH.
+    next:
+      - when:
+          output_matches: AppData\\Roaming\\npm|%APPDATA%\\npm
+        goto: manual.dev.try_again
+      - default: manual.win.dev.edit_user_path
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.win.dev.edit_user_path
+    version: 1
+    title: Add npm's folder to your PATH (Windows settings)
+    kind: manual
+    os:
+      - windows11
+      - windows10
+    shell: gui
+    category: dev_cli
+    risk: safe_change
+    needs_admin: false
+    manual_steps:
+      - Press Start, type "environment variables" and open "Edit environment variables for your account".
+      - In the top list, select Path and click Edit.
+      - Click New and paste the folder from the npm step (usually %APPDATA%\npm).
+      - Click OK on every window, then close and reopen your terminal.
+    when_to_use: When npm's Windows folder isn't on PATH.
+    explanation: This adds npm's folder to the list Windows searches for commands, only for your account. Nothing is installed or deleted.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: manual.dev.try_again
+      - default: ESCALATE
+    undo: Open the same window, select that Path entry and click Delete.
+    sources: []
+    reviewed_by: null
+    tested_on: []

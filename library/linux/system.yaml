@@ -1,0 +1,61 @@
+# linux/system.yaml — 2 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: linux.sys.os_release
+    version: 1
+    title: Show your Linux version
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: system
+    risk: read_only
+    needs_admin: false
+    command: cat /etc/os-release
+    when_to_use: When the Linux distribution or version is unknown.
+    explanation: |
+      Prints a small text file every modern Linux system has, which names the distribution
+      and its version. Different versions ship different Bluetooth and network tools, so this
+      helps pick the right steps. It only reads a file.
+    expect:
+      - pattern: ^PRETTY_NAME=
+        meaning: The line starting with PRETTY_NAME is your distribution and version.
+    next:
+      - default: FLOW_ENTRY
+    undo: null
+    sources:
+      - title: os-release(5) man page
+        url: https://www.freedesktop.org/software/systemd/man/latest/os-release.html
+        license: link-only
+    reviewed_by: null
+    tested_on: []
+  - id: linux.sys.kernel
+    version: 1
+    title: Show your kernel version
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: system
+    risk: read_only
+    needs_admin: false
+    command: uname -r
+    when_to_use: When a driver or firmware problem is suspected and the kernel version matters.
+    explanation: |
+      Prints the version of the Linux kernel you are running. Drivers for Wi-Fi and Bluetooth
+      live in the kernel, so some problems only affect certain versions. It changes nothing.
+    expect:
+      - pattern: ^\d+\.\d+
+        meaning: This is your kernel version.
+    next:
+      - default: FLOW_ENTRY
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []

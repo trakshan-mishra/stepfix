@@ -1,0 +1,32 @@
+# windows/system.yaml — 1 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: win.sys.os_info
+    version: 1
+    title: Show your Windows version
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: system
+    risk: read_only
+    needs_admin: false
+    command: Get-ComputerInfo -Property OsName, OsVersion, OsBuildNumber
+    when_to_use: When the Windows version or build is unknown.
+    explanation: |
+      Shows your Windows edition, version and build number. It can take a few seconds.
+      Some fixes depend on the build. It only reads information.
+    expect:
+      - pattern: Windows 11
+        meaning: You're on Windows 11.
+      - pattern: Windows 10
+        meaning: You're on Windows 10.
+    next:
+      - default: FLOW_ENTRY
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []

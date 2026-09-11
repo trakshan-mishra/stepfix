@@ -962,6 +962,19 @@ function Chat() {
   );
 }
 
+import { lazy } from "react";
+
+const LibraryList = lazy(() => import("./routes/library"));
+const LibraryDetail = lazy(() => import("./routes/library-detail"));
+
+function Router() {
+  const path = window.location.pathname;
+  if (path === "/library") return <LibraryList />;
+  const libMatch = path.match(/^\/library\/(.+)$/);
+  if (libMatch) return <LibraryDetail id={decodeURIComponent(libMatch[1])} />;
+  return <Chat />;
+}
+
 export default function App() {
   return (
     <Toasty>
@@ -972,7 +985,7 @@ export default function App() {
           </div>
         }
       >
-        <Chat />
+        <Router />
       </Suspense>
     </Toasty>
   );

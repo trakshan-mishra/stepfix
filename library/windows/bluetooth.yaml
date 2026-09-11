@@ -1,0 +1,246 @@
+# windows/bluetooth.yaml — 8 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: win.bt.devices
+    version: 1
+    title: List Bluetooth devices and their status
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: Get-PnpDevice -Class Bluetooth | Format-Table Status, FriendlyName -AutoSize
+    when_to_use: First check for any Bluetooth problem on Windows.
+    explanation: |
+      Lists every Bluetooth item Windows knows about and its status. "OK" means working,
+      "Error" means a driver problem, and "Unknown" means the device isn't present right now.
+      It only reads information.
+    expect:
+      - pattern: ^Error\s
+        meaning: A Bluetooth device has a driver problem.
+      - pattern: ^OK\s
+        meaning: These items are working.
+      - pattern: ^Unknown\s
+        meaning: These items aren't present right now (often old or disconnected devices).
+      - pattern: No matching Win32_PnPEntity objects
+        meaning: Windows can't see any Bluetooth hardware.
+    next:
+      - when:
+          output_matches: No matching Win32_PnPEntity objects
+        goto: manual.win.bt.quick_settings
+      - when:
+          output_matches: ^Error\s
+        goto: win.bt.service_status
+      - default: manual.win.bt.quick_settings
+    undo: null
+    sources:
+      - title: Microsoft Learn — Get-PnpDevice
+        url: https://learn.microsoft.com/en-us/powershell/module/pnpdevice/get-pnpdevice
+        license: CC-BY-4.0
+    reviewed_by: null
+    tested_on: []
+  - id: win.bt.service_status
+    version: 1
+    title: Check the Bluetooth Support Service
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: Get-Service bthserv | Format-List Name, Status, StartType
+    when_to_use: When Bluetooth devices show errors or won't connect.
+    explanation: |
+      Windows needs the "Bluetooth Support Service" (bthserv) for Bluetooth to work. This
+      shows whether it's running and how it starts. It only reads status.
+    expect:
+      - pattern: Status\s*:\s*Running
+        meaning: The service is running.
+      - pattern: Status\s*:\s*Stopped
+        meaning: The service is stopped.
+      - pattern: StartType\s*:\s*Disabled
+        meaning: The service is disabled and can't start.
+    next:
+      - when:
+          output_matches: StartType\s*:\s*Disabled
+        goto: win.bt.service_set_manual
+      - when:
+          output_matches: Status\s*:\s*Stopped
+        goto: win.bt.service_start
+      - default: win.bt.service_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.bt.service_set_manual
+    version: 1
+    title: Allow the Bluetooth service to start
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: Set-Service -Name bthserv -StartupType Manual
+    when_to_use: When bthserv is Disabled.
+    explanation: |
+      Changes the Bluetooth Support Service from "Disabled" back to Windows' default
+      ("Manual"), so it can start when needed. Run it in a terminal opened as administrator.
+    expect:
+      - pattern: ^\s*$
+        meaning: It worked.
+      - pattern: Access is denied|PermissionDenied
+        meaning: The terminal isn't running as administrator.
+    next:
+      - default: win.bt.service_start
+    undo: Set-Service -Name bthserv -StartupType Disabled
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.bt.service_start
+    version: 1
+    title: Start the Bluetooth service
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: Start-Service bthserv
+    when_to_use: When bthserv is stopped.
+    explanation: |
+      Starts the Bluetooth Support Service now. Run it in a terminal opened as administrator.
+    expect:
+      - pattern: ^\s*$
+        meaning: The service started.
+      - pattern: cannot be started|Cannot open
+        meaning: Windows couldn't start it, often a permissions or driver problem.
+    next:
+      - when:
+          output_matches: cannot be started|Cannot open
+        goto: manual.win.bt.optional_updates
+      - default: manual.win.bt.try_connect
+    undo: Stop-Service bthserv
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: win.bt.service_restart
+    version: 1
+    title: Restart the Bluetooth service
+    kind: command
+    os:
+      - windows11
+      - windows10
+    shell: powershell
+    category: bluetooth
+    risk: restart
+    needs_admin: true
+    command: Restart-Service bthserv
+    when_to_use: When the service runs but Bluetooth is stuck or devices error.
+    explanation: |
+      Stops and starts the Bluetooth Support Service. Connected Bluetooth devices drop for a
+      few seconds. Run it in a terminal opened as administrator.
+    expect:
+      - pattern: "^\\s*$|WARNING: Waiting for service"
+        meaning: It restarted.
+    next:
+      - default: manual.win.bt.try_connect
+    undo: n/a — restarts the service
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.win.bt.quick_settings
+    version: 1
+    title: Check Airplane mode and the Bluetooth toggle
+    kind: manual
+    os:
+      - windows11
+      - windows10
+    shell: gui
+    category: bluetooth
+    risk: safe_change
+    needs_admin: false
+    deep_link: ms-settings:bluetooth
+    manual_steps:
+      - Press Windows + A to open Quick Settings.
+      - Make sure Airplane mode is off and Bluetooth is on.
+      - If there's no Bluetooth button at all, tell me. That usually means a driver problem.
+    when_to_use: When Windows sees no Bluetooth hardware, or as a first quick check.
+    explanation: Airplane mode turns off every radio, including Bluetooth. It's the most common cause and takes five seconds to check.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: manual.win.bt.try_connect
+      - default: manual.win.bt.optional_updates
+    undo: Toggle the same switches back.
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.win.bt.optional_updates
+    version: 1
+    title: Look for a Bluetooth driver update
+    kind: manual
+    os:
+      - windows11
+      - windows10
+    shell: gui
+    category: bluetooth
+    risk: safe_change
+    needs_admin: false
+    deep_link: ms-settings:windowsupdate-optionalupdates
+    manual_steps:
+      - Open Settings → Windows Update → Advanced options → Optional updates.
+      - Open "Driver updates". If you see a Bluetooth or wireless driver, select it and install.
+      - Restart the computer if Windows asks, then come back here.
+    when_to_use: When a Bluetooth device shows Error or the service won't start.
+    explanation: Windows Update offers tested drivers from your laptop's maker. A newer driver often fixes a Bluetooth adapter that shows an error.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: win.bt.devices
+      - default: ESCALATE
+    undo: "Settings → Windows Update → Update history → Uninstall updates (for drivers: Device Manager → Roll back driver)."
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.win.bt.try_connect
+    version: 1
+    title: Try connecting your Bluetooth device now
+    kind: manual
+    os:
+      - windows11
+      - windows10
+    shell: gui
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    deep_link: ms-settings:bluetooth
+    manual_steps:
+      - Open Settings → Bluetooth & devices.
+      - Put your device in pairing mode, then click "Add device" and pick it.
+      - If it was paired before and won't connect, open it and choose "Remove device", then add it again.
+    when_to_use: After Bluetooth is back on, to check the original problem is fixed.
+    explanation: This checks what you actually care about. Removing and re-adding clears old pairing data that often breaks after updates.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: RESOLVED
+      - default: manual.win.bt.optional_updates
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []

@@ -7,6 +7,7 @@ import {
   streamText
 } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
+import { handleLibraryRequest } from "./server/http/library";
 
 export class SupportSession extends AIChatAgent<Env> {
   maxPersistedMessages = 200;
@@ -41,6 +42,9 @@ export class Coordinator extends Agent<Env> {
 
 export default {
   async fetch(request: Request, env: Env) {
+    const libraryResponse = handleLibraryRequest(request);
+    if (libraryResponse) return libraryResponse;
+
     return (
       (await routeAgentRequest(request, env)) ||
       new Response("Not found", { status: 404 })

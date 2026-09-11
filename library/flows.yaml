@@ -1,0 +1,22 @@
+# flows.yaml — entry points for the playbook engine
+# See spec/05-script-library.md §4.
+
+flows:
+  - os_family: linux
+    category: bluetooth
+    entry: linux.bt.rfkill_list
+  - os_family: linux
+    category: wifi
+    entry: linux.net.radio
+  - os_family: linux
+    category: dev_cli
+    entry: linux.dev.which
+  - os_family: windows
+    category: bluetooth
+    entry: win.bt.devices
+  - os_family: windows
+    category: wifi
+    entry: win.net.wlan_interfaces
+  - os_family: windows
+    category: dev_cli
+    entry: win.dev.where

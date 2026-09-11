@@ -1,0 +1,492 @@
+# linux/wifi.yaml — 16 entries
+# Part of the stepfix script library. See spec/05-script-library.md for schema.
+# reviewed_by: null on all entries — run on a real machine before setting.
+
+scripts:
+  - id: linux.net.radio
+    version: 1
+    title: Check if Wi-Fi is switched on
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: nmcli radio wifi
+    when_to_use: First check for Wi-Fi problems on Linux with NetworkManager (Ubuntu default).
+    explanation: |
+      Asks NetworkManager, the program that manages networks on Ubuntu, whether the Wi-Fi
+      radio is enabled. It prints one word and changes nothing.
+    expect:
+      - pattern: ^enabled
+        meaning: Wi-Fi is switched on.
+      - pattern: ^disabled
+        meaning: Wi-Fi is switched off.
+      - pattern: command not found
+        meaning: NetworkManager isn't installed; this machine manages networks differently.
+    next:
+      - when:
+          output_matches: ^disabled
+        goto: linux.net.wifi_on
+      - when:
+          output_matches: command not found
+        goto: ESCALATE
+      - default: linux.net.device_status
+    undo: null
+    sources:
+      - title: ArchWiki — NetworkManager
+        url: https://wiki.archlinux.org/title/NetworkManager
+        license: GFDL-1.3-or-later
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.wifi_on
+    version: 1
+    title: Switch Wi-Fi on
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: safe_change
+    needs_admin: false
+    command: nmcli radio wifi on
+    when_to_use: When nmcli says Wi-Fi is disabled.
+    explanation: |
+      Turns the Wi-Fi radio on, the same as the Wi-Fi toggle in Settings. It prints nothing
+      when it works. If a hardware switch is off, it won't be able to turn it on.
+    expect:
+      - pattern: ^\s*$
+        meaning: No output means it worked.
+    next:
+      - default: linux.net.device_status
+    undo: nmcli radio wifi off
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.device_status
+    version: 1
+    title: See the state of your Wi-Fi adapter
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: nmcli device status
+    when_to_use: To see whether the Wi-Fi adapter exists and whether it's connected.
+    explanation: |
+      Lists your network adapters and their state: connected, disconnected, or unavailable.
+      "Unavailable" usually means the radio is blocked or the driver has a problem.
+    expect:
+      - pattern: \bwifi\s+connected
+        meaning: Wi-Fi is connected to a network.
+      - pattern: \bwifi\s+disconnected
+        meaning: Wi-Fi works but isn't connected to a network.
+      - pattern: \bwifi\s+unavailable
+        meaning: The Wi-Fi adapter is blocked or not ready.
+    next:
+      - when:
+          output_matches: \bwifi\s+unavailable
+        goto: linux.net.rfkill_wifi
+      - when:
+          output_matches: \bwifi\s+connected
+        goto: linux.net.ping_ip
+      - when:
+          output_matches: \bwifi\s+disconnected
+        goto: manual.linux.net.connect
+      - default: ESCALATE
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.rfkill_wifi
+    version: 1
+    title: Check if Wi-Fi is blocked
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: rfkill list wifi
+    when_to_use: When the Wi-Fi adapter is unavailable.
+    explanation: |
+      Shows whether the Wi-Fi radio is blocked in software or by a hardware switch. It only
+      reads status.
+    expect:
+      - pattern: "Soft blocked: yes"
+        meaning: Wi-Fi is switched off in software.
+      - pattern: "Hard blocked: yes"
+        meaning: A hardware switch or key is turning Wi-Fi off.
+    next:
+      - when:
+          output_matches: "Soft blocked: yes"
+        goto: linux.net.rfkill_unblock_wifi
+      - when:
+          output_matches: "Hard blocked: yes"
+        goto: manual.linux.net.hard_block
+      - default: ESCALATE
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.rfkill_unblock_wifi
+    version: 1
+    title: Remove the software block on Wi-Fi
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: safe_change
+    needs_admin: true
+    command: sudo rfkill unblock wifi
+    when_to_use: 'When rfkill shows Wi-Fi "Soft blocked: yes".'
+    explanation: |
+      Removes the software block that keeps the Wi-Fi radio off. It asks for your password
+      because it changes a system setting.
+    expect:
+      - pattern: ^\s*$
+        meaning: No output means it worked.
+    next:
+      - default: linux.net.device_status
+    undo: sudo rfkill block wifi
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.linux.net.hard_block
+    version: 1
+    title: Turn off the hardware switch for Wi-Fi
+    kind: manual
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: gui
+    category: wifi
+    risk: safe_change
+    needs_admin: false
+    manual_steps:
+      - Press the key with an antenna or airplane icon (often Fn plus one of F2–F12).
+      - Check the laptop's sides for a wireless switch.
+      - Tell me if that changed anything.
+    when_to_use: When Wi-Fi is hard blocked.
+    explanation: |
+      A hard block comes from hardware or firmware, so software can't lift it. The wireless
+      key or switch usually can.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: linux.net.device_status
+      - default: ESCALATE
+    undo: Press the key or flip the switch back.
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.linux.net.connect
+    version: 1
+    title: Connect to your Wi-Fi network
+    kind: manual
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: gui
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - Click the network icon in the top-right corner and open Wi-Fi.
+      - Pick your network and enter its password. Type it there, never in this chat.
+      - Tell me whether it connected.
+    when_to_use: When Wi-Fi works but is disconnected.
+    explanation: |
+      The adapter is fine but not joined to a network. Connecting through Settings is the
+      simplest way and keeps your Wi-Fi password on your computer.
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: linux.net.ping_ip
+      - default: linux.net.nm_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.addr
+    version: 1
+    title: Check your network addresses
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: ip -brief address
+    when_to_use: When connected but nothing loads, to see if the router gave you an address.
+    explanation: |
+      Lists each network adapter with its IP address. A normal home address looks like
+      192.168.x.x or 10.x.x.x. An address starting with 169.254 means the router never
+      answered.
+    expect:
+      - pattern: ^wl\S*\s+UP\s+(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))\.
+        meaning: Your Wi-Fi has a normal local address.
+      - pattern: 169\.254\.
+        meaning: The router didn't give you an address.
+    next:
+      - when:
+          output_matches: 169\.254\.
+        goto: manual.router_restart
+      - default: linux.net.route
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.route
+    version: 1
+    title: Check the route to the internet
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: ip route
+    when_to_use: When you have an address but can't reach the internet.
+    explanation: |
+      Shows where your computer sends traffic. A line starting with "default via" is the
+      route to the internet through your router. Without it, nothing outside your home
+      network loads.
+    expect:
+      - pattern: ^default via
+        meaning: There's a route to the internet.
+    next:
+      - when:
+          output_matches: ^default via
+        goto: linux.net.ping_ip
+      - default: linux.net.nm_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.ping_ip
+    version: 1
+    title: Test the internet connection by address
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: ping -c 4 1.1.1.1
+    when_to_use: To tell apart "no internet" from "names don't resolve".
+    explanation: |
+      Sends four small test messages to a well-known public server by its number, skipping
+      name lookup. If these get answers, your internet works and the problem is likely DNS
+      (turning names into addresses).
+    expect:
+      - pattern: " 0% packet loss"
+        meaning: The internet is reachable.
+      - pattern: 100% packet loss|Network is unreachable
+        meaning: The internet isn't reachable at all.
+    next:
+      - when:
+          output_matches: " 0% packet loss"
+        goto: linux.net.dns_test
+      - when:
+          output_matches: 100% packet loss|Network is unreachable
+        goto: linux.net.addr
+      - default: linux.net.dns_test
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.dns_test
+    version: 1
+    title: Test that website names resolve (DNS)
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: getent hosts example.com
+    when_to_use: When the internet works by address but websites don't load.
+    explanation: |
+      Asks your system to turn a website name into an address, which is what DNS does. If
+      nothing prints, name lookup is broken, which makes it look like the internet is down.
+    expect:
+      - pattern: \S+\s+example\.com
+        meaning: Name lookup works.
+      - pattern: ^\s*$
+        meaning: Name lookup is failing.
+    next:
+      - when:
+          output_empty: true
+        goto: linux.net.flush_dns
+      - default: manual.linux.net.try_browse
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.dns_status
+    version: 1
+    title: See which DNS servers you're using
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: resolvectl status
+    when_to_use: When DNS fails, to see which DNS servers are configured.
+    explanation: |
+      Shows the DNS servers each network adapter uses. Usually it's your router's address.
+      If none are listed for Wi-Fi, name lookup can't work.
+    expect:
+      - pattern: "DNS Servers?:"
+        meaning: DNS servers are configured.
+    next:
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.flush_dns
+    version: 1
+    title: Clear the DNS cache
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: safe_change
+    needs_admin: true
+    command: sudo resolvectl flush-caches
+    when_to_use: When name lookup fails or returns stale results.
+    explanation: |
+      Clears the list of recently looked-up website addresses that your computer keeps. A
+      stale or broken entry can stop sites loading. The list rebuilds itself automatically.
+    expect:
+      - pattern: ^\s*$
+        meaning: The cache was cleared.
+    next:
+      - default: linux.net.dns_test_after_flush
+    undo: n/a — the cache refills automatically
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.dns_test_after_flush
+    version: 1
+    title: Test name lookup again
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: getent hosts example.com
+    when_to_use: After clearing the DNS cache, to see if it helped.
+    explanation: |
+      Same test as before. If a name and address print now, clearing the cache fixed it.
+    expect:
+      - pattern: \S+\s+example\.com
+        meaning: Name lookup works now.
+      - pattern: ^\s*$
+        meaning: Still failing.
+    next:
+      - when:
+          output_empty: true
+        goto: linux.net.dns_status
+      - default: manual.linux.net.try_browse
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: linux.net.nm_restart
+    version: 1
+    title: Restart NetworkManager
+    kind: command
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: bash
+    category: wifi
+    risk: restart
+    needs_admin: true
+    command: sudo systemctl restart NetworkManager
+    when_to_use: When the adapter is fine but connections fail or hang.
+    explanation: |
+      Restarts the program that manages your network connections. Your connection drops for
+      a few seconds and should come back by itself.
+    expect:
+      - pattern: ^\s*$
+        meaning: It restarted.
+    next:
+      - default: linux.net.device_status
+    undo: n/a — restarts the service; Wi-Fi reconnects on its own
+    sources: []
+    reviewed_by: null
+    tested_on: []
+  - id: manual.linux.net.try_browse
+    version: 1
+    title: Try loading a website
+    kind: manual
+    os:
+      - ubuntu
+      - debian
+      - linux_other
+    shell: gui
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - Open a new browser tab and load a site you use often.
+      - Tell me whether it loads.
+    when_to_use: After network tests pass, to confirm the original problem is fixed.
+    explanation: "This checks the thing you actually care about, not just a test command. If the site loads, your connection is fixed."
+    expect: []
+    next:
+      - when:
+          status: worked
+        goto: RESOLVED
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
