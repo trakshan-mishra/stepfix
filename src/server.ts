@@ -11,6 +11,7 @@ import { handleLibraryRequest } from "./server/http/library";
 import { handleSessionRequest } from "./server/http/session";
 import { handleAdminRequest } from "./server/http/admin";
 import { handleFeedbackRequest } from "./server/http/feedback";
+import { generateSitemap } from "./server/seo";
 import { verifyToken } from "./server/http/token";
 import { createMockModel } from "./server/llm/mock";
 import { Coordinator } from "./server/agents/coordinator";
@@ -194,6 +195,13 @@ export default {
 
     const feedbackResponse = await handleFeedbackRequest(request, env);
     if (feedbackResponse) return feedbackResponse;
+
+    const url = new URL(request.url);
+    if (url.pathname === "/sitemap.xml") {
+      return new Response(generateSitemap("https://stepfix.workers.dev"), {
+        headers: { "content-type": "application/xml" }
+      });
+    }
 
     if (new URL(request.url).pathname.startsWith("/agents/")) {
       const auth = new URL(request.url).searchParams.get("token") ?? "";

@@ -24,7 +24,8 @@
     "test:e2e": "playwright test",
     "lint:library": "tsx scripts/lint-library.ts",
     "compile:library": "tsx scripts/compile-library.ts",
-    "eval": "tsx eval/run-eval.ts"
+    "eval": "tsx eval/run-eval.ts",
+    "checklist": "tsx scripts/production-checklist.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.0",

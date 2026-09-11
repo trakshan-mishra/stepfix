@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /agents/
+
+Sitemap: https://stepfix.example.com/sitemap.xml
