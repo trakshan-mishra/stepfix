@@ -54,7 +54,7 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
   maxPersistedMessages = 200;
 
   onStart() {
-    if (!this.state.createdAt) {
+    if (!this.state || !this.state.createdAt) {
       this.setState({
         ...INITIAL_STATE,
         createdAt: Date.now(),
@@ -65,6 +65,13 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
   }
 
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
+    if (!this.state) {
+      this.setState({
+        ...INITIAL_STATE,
+        createdAt: Date.now(),
+        lastActiveAt: Date.now()
+      });
+    }
     this.setState({
       ...this.state,
       lastActiveAt: Date.now(),
