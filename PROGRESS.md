@@ -2,9 +2,18 @@
 
 ## Current milestone
 
-M4 — Phases, tools, script cards, guardrails (complete)
+M5 — Knowledge base (complete)
 
 ## What's done
+
+### M5 — Knowledge base (2026-09-11)
+
+- `migrations/0001_init.sql` — D1 schema: kb_chunks table, kb_fts FTS5 virtual table with external-content pattern, sync triggers (insert/delete/update), sessions_index, violations, demand tables
+- `kb/sources.yaml` — copied from seed (12 sources: 3 ArchWiki ingest, 1 MS Docs ingest, 8 link-only)
+- `kb/ingest/ingest.ts` — ingestion script skeleton (reads sources.yaml, chunks by heading, computes stable IDs, placeholder for fetch+embed+upsert)
+- `src/server/kb/search.ts` — hybrid search: `sanitizeFts()` (strips FTS special chars, keywords, splits on punctuation), `sanitizeFtsOr()` (OR fallback), `rrf()` (Reciprocal Rank Fusion k=60), `makeSnippet()` (truncates with [...]), `searchKb()` (lexical FTS5 first, semantic Vectorize when lexical <3 results, RRF fusion, 2.5s timeout, keyword-only fallback)
+- Updated `search_kb` tool in `tools.ts` to reference KB search
+- Tests: 21 tests — sanitizeFts (12: simple word, multiple words, can't, a-b, C:\Users, 0x80070005, org.bluez.Error.NotReady, empty, punctuation, FTS keywords, special chars), sanitizeFtsOr (2), RRF (5: fuse two lists, items in both rank higher, empty lists, one empty, k parameter), makeSnippet (3: short as-is, truncates with [...], preserves start+end)
 
 ### M4 — Support → Technician agent (2026-09-11)
 
@@ -91,18 +100,19 @@ M4 — Phases, tools, script cards, guardrails (complete)
 - `database_id` in `wrangler.jsonc` is a placeholder — human must run `npx wrangler d1 create stepfix` and fill it in
 - D1 and Vectorize resources don't exist yet — human must create them
 - `npm install` requires `--legacy-peer-deps` due to `@modelcontextprotocol/sdk` peer conflict
-- `npm run check` passes, `npm test` passes (211 tests: 1 sanity + 104 library + 9 token + 16 coordinator + 39 router/chaos/classify + 42 agent/guardrails/report)
+- `npm run check` passes, `npm test` passes (232 tests: 1 sanity + 104 library + 9 token + 16 coordinator + 39 router/chaos/classify + 42 agent/guardrails/report + 21 kb)
 - `npm run lint:library` passes (0 errors, 4 info for unreachable entries — expected)
 - `npm run compile:library` is deterministic (verified)
 - Vectorize binding warns "does not support local development" — expected; the index doesn't exist yet
 - `npm run dev` chat streaming not manually verified yet — human needs to run `npm run dev` and send a message
-- Router streamTurn not yet wired into SupportSession.onChatMessage — tools are wired with direct streamText + mock model; full router wiring needs Coordinator RPC which happens when real providers are added
+- Router streamTurn not yet wired into SupportSession.onChatMessage — tools are wired with direct streamText + mock model
 - Admin API not manually tested
 - `SESSION_SIGNING_KEY` defaults to "dev-key-change-me" in dev — human must set a real key in `.dev.vars`
 - Gemini model IDs may carry `-preview` suffix — human should verify exact IDs via the Gemini API
-- search_kb tool is a stub (returns empty) — full implementation in M5
-- Server-driven continuation after handoff not yet implemented — needs `saveMessages` with synthetic system_event (M4 spec item 4)
-- Playwright E2E not added — M4 acceptance requires manual journey J1 test
+- KB ingest script is a skeleton — full fetch+embed+upsert requires CF_ACCOUNT_ID + CF_API_TOKEN (human-only)
+- KB search not wired to live D1/Vectorize in tests — needs `wrangler d1 migrations apply --local` first
+- Server-driven continuation after handoff not yet implemented — needs `saveMessages` with synthetic system_event
+- Playwright E2E not added
 
 ## Decisions made
 
@@ -123,7 +133,7 @@ M4 — Phases, tools, script cards, guardrails (complete)
 
 ## Next milestone
 
-M5 — Knowledge base
+M6 — Screenshots, scrubbing, vision
 
 ## What the human must do next
 

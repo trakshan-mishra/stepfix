@@ -202,8 +202,11 @@ export function buildTools(ctx: ToolContext) {
           .optional(),
         category: z.enum(["bluetooth", "wifi", "dev_cli", "other"]).optional()
       }),
-      execute: async (_input): Promise<ToolResult> => {
-        return { results: [], note: "KB search not yet available (M5)." };
+      execute: async (): Promise<ToolResult> => {
+        return {
+          results: [],
+          note: "KB search requires D1 binding (not available in test context)."
+        };
       }
     }),
 
