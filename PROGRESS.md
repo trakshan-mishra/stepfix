@@ -2,9 +2,25 @@
 
 ## Current milestone
 
-M1 — Script library pipeline and public pages (complete)
+M2 — Sessions, admission, chat skeleton (complete)
 
 ## What's done
+
+### M2 — Sessions, admission, chat skeleton (2026-09-11)
+
+- `src/server/llm/mock.ts` — mock language model using `MockLanguageModelV4` from `ai/test`, streams canned text with 300–1500ms random delay, tool-call support
+- `src/server/http/token.ts` — HMAC-SHA256 session token, 24h expiry, sign/verify, timing-safe comparison
+- `src/server/http/turnstile.ts` — server-side Turnstile verification with 3s timeout, dev test keys
+- `src/server/agents/coordinator-logic.ts` — pure admission logic: admit, queue (cap 50), per-IP limits (3/hour, 10/day), heartbeat, release, sweep idle, checkQueue with lazy promotion
+- `src/server/agents/coordinator.ts` — Coordinator DO wrapping CoordinatorLogic with durable storage and alarm sweep
+- `src/server/http/session.ts` — POST `/api/session` (Turnstile + admit), GET `/api/session/queue/:ticket`, DELETE `/api/session/:id` (purge DO + D1)
+- `src/server.ts` — wired session routes, token validation on WebSocket connect, SupportSession state (phase, caseFile, steps, counters), 24h purge schedule, mock model streaming
+- `src/server/env-extra.ts` — TypeScript env augmentation for secrets (TURNSTILE_SECRET_KEY, SESSION_SIGNING_KEY, etc.)
+- `src/client/routes/home.tsx` — Turnstile widget + start button + waiting room with 20±5s polling
+- `src/client/routes/privacy.tsx` — privacy notice page
+- `src/client/lib/token.ts` — localStorage token storage (save/get/clear with try/catch)
+- `src/client/app.tsx` — routing for home, session, library, privacy; Chat accepts sessionId+token props
+- Tests: 26 tests — token sign/verify (9: valid, tampered, expired, wrong secret, malformed, no dot, exactly 24h, different sessions, same session), coordinator admission (8: admit under cap, queue at cap, queue full, promote on release, queue order, heartbeat, expired ticket), per-IP limits (3: hourly limit, over-limit, different IPs), release/sweep (5: release, unknown release, sweep idle, no sweep active, promote after sweep)
 
 ### M1 — Script library pipeline (2026-09-11)
 
@@ -47,15 +63,16 @@ M1 — Script library pipeline and public pages (complete)
 ## Open issues
 
 - `database_id` in `wrangler.jsonc` is a placeholder — human must run `npx wrangler d1 create stepfix` and fill it in
-- D1 and Vectorize resources don't exist yet — human must create them (see "What the human must do next")
-- `npm install` requires `--legacy-peer-deps` due to `@modelcontextprotocol/sdk` peer conflict between `agents@0.22` and other deps
-- `npm run check` passes, `npm test` passes (105 tests: 1 sanity + 104 library)
-- `npm run lint:library` passes (0 errors, 4 info for unreachable entries — expected per spec)
+- D1 and Vectorize resources don't exist yet — human must create them
+- `npm install` requires `--legacy-peer-deps` due to `@modelcontextprotocol/sdk` peer conflict
+- `npm run check` passes, `npm test` passes (130 tests: 1 sanity + 104 library + 9 token + 16 coordinator)
+- `npm run lint:library` passes (0 errors, 4 info for unreachable entries — expected)
 - `npm run compile:library` is deterministic (verified)
 - Vectorize binding warns "does not support local development" — expected; the index doesn't exist yet
 - `npm run dev` chat streaming not manually verified yet — human needs to run `npm run dev` and send a message
-- 4 seed entries had explanations under 80 chars; fixed in the split library files
-- 4 entries are unreachable from flows/gotos (linux.sys.os_release, linux.sys.kernel, win.sys.os_info, win.net.restart_adapter) — expected per spec §1: "Some entries aren't reachable from any flow. Only the LLM uses them."
+- Turnstile widget loads from Cloudflare CDN — needs internet in dev
+- Coordinator promotion is lazy (only on checkQueue poll), not automatic on release — by design, so clients discover admission via polling
+- `SESSION_SIGNING_KEY` defaults to "dev-key-change-me" in dev — human must set a real key in `.dev.vars`
 
 ## Decisions made
 
@@ -63,12 +80,15 @@ M1 — Script library pipeline and public pages (complete)
 - Kept starter's `@cloudflare/kumo`, `streamdown`, `@streamdown/code`, `@phosphor-icons/react` for UI
 - Kept Workers AI model `@cf/moonshotai/kimi-k2.7-code` as the M0 placeholder (will be replaced by the model router in M3)
 - `APP_ENV` set to `"development"` and `LLM_MODE` set to `"mock"` in wrangler.jsonc vars for local dev
-- Cycle detection uses graph reachability (can the entry reach RESOLVED/ESCALATE/FLOW_ENTRY through any path?) rather than simple default-chain following, because the seed library has intentional loops (e.g. journal → service_restart → controller_show → journal) that are broken by conditional gotos
+- Cycle detection uses graph reachability (can the entry reach RESOLVED/ESCALATE/FLOW_ENTRY through any path?) rather than simple default-chain following
 - `renderCommand` lives in `src/server/library/render.ts` (separate from index.ts) so tests can import it without the compiled library JSON
+- Coordinator admission logic extracted into `coordinator-logic.ts` (pure class, no Agent dependency) for unit testing; the DO wraps it
+- Queue promotion is lazy: `release()` frees a slot but doesn't auto-promote; `checkQueue()` promotes when the client polls and a slot is available
+- `LanguageModelV4StreamPart` requires `id` fields on text parts; mock model generates per-message IDs
 
 ## Next milestone
 
-M2 — Sessions, admission, chat skeleton (mock model)
+M3 — Model registry, providers, router, quota ledger
 
 ## What the human must do next
 
@@ -77,6 +97,7 @@ M2 — Sessions, admission, chat skeleton (mock model)
 3. `npx wrangler vectorize create kb-bge-small-384 --dimensions=384 --metric=cosine`
 4. `npx wrangler vectorize create-metadata-index kb-bge-small-384 --property-name=os --type=string`
 5. `npx wrangler vectorize create-metadata-index kb-bge-small-384 --property-name=category --type=string`
-6. Create a `.dev.vars` file from `.dev.vars.example` (no real keys needed until M2/M3)
-7. Run `npm run dev` and send a message to verify the chat works
-8. Browse `/library` to see all 63 entries
+6. Create `.dev.vars` from `.dev.vars.example` — set `SESSION_SIGNING_KEY` (run `openssl rand -base64 32`) and `TURNSTILE_SECRET_KEY` (use test key `1x0000000000000000000000000000000AA` for dev)
+7. Create `.env` from `.env.example` — set `VITE_TURNSTILE_SITE_KEY` (use test key `1x00000000000000000000AA`)
+8. Run `npm run dev` and send a message to verify the chat works with the mock model
+9. With `MAX_ACTIVE_SESSIONS=1` (set in `.dev.vars`), open a second browser — it should land in the waiting room

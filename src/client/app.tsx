@@ -259,7 +259,7 @@ function ToolPartView({
 
 // ── Main chat ─────────────────────────────────────────────────────────
 
-function Chat() {
+function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
   const [connected, setConnected] = useState(false);
   const [input, setInput] = useState("");
   const [showDebug, setShowDebug] = useState(false);
@@ -283,6 +283,10 @@ function Chat() {
 
   const agent = useAgent<SupportSession>({
     agent: "SupportSession",
+    name: sessionId,
+    query: token
+      ? () => Promise.resolve({ token } as Record<string, string>)
+      : undefined,
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
     onError: useCallback(
@@ -966,12 +970,39 @@ import { lazy } from "react";
 
 const LibraryList = lazy(() => import("./routes/library"));
 const LibraryDetail = lazy(() => import("./routes/library-detail"));
+const Home = lazy(() => import("./routes/home"));
+const Privacy = lazy(() => import("./routes/privacy"));
 
 function Router() {
   const path = window.location.pathname;
+  const [session, setSession] = useState<{
+    sessionId: string;
+    token: string;
+  } | null>(null);
+
+  const onStart = useCallback((sessionId: string, token: string) => {
+    setSession({ sessionId, token });
+    window.history.pushState({}, "", `/session/${sessionId}`);
+  }, []);
+
   if (path === "/library") return <LibraryList />;
   const libMatch = path.match(/^\/library\/(.+)$/);
   if (libMatch) return <LibraryDetail id={decodeURIComponent(libMatch[1])} />;
+  if (path === "/privacy") return <Privacy />;
+  if (session)
+    return (
+      <Chat
+        key={session.sessionId}
+        sessionId={session.sessionId}
+        token={session.token}
+      />
+    );
+  if (
+    path === "/" ||
+    !(path.startsWith("/library") || path.startsWith("/privacy"))
+  ) {
+    return <Home onStart={onStart} />;
+  }
   return <Chat />;
 }
 
