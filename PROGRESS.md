@@ -2,9 +2,23 @@
 
 ## Current milestone
 
-M3 — Model registry, providers, router, quota ledger (complete)
+M4 — Phases, tools, script cards, guardrails (complete)
 
 ## What's done
+
+### M4 — Support → Technician agent (2026-09-11)
+
+- `src/server/agent/case-file.ts` — zod schemas (Os, Category, Fact, CaseFile, Step, Phase, Card), `missingForHandoff()` validation
+- `src/server/agent/phases.ts` — state machine (support→technician→resolved/escalated→closed), `canTransition()`, `transition()`, `isTerminal()`
+- `src/server/agent/prompts/support.md` and `technician.md` — system prompts from 04 §5
+- `src/server/agent/tools.ts` — 7 tools with validation: `update_case`, `handoff_to_technician` (validates case file), `recommend_step` (library lookup, OS check, param validation, one-per-turn, idempotent), `search_kb` (stub), `request_screenshot` (cap check), `escalate_to_human` (builds report), `mark_resolved` (requires passing step), `handback_to_support`
+- `src/server/agent/prepare-messages.ts` — `buildSystemPrompt()` (phase-aware with case JSON/steps table/catalog), `formatCatalogSubset()`, `prepareMessagesForModel()` (wraps long pastes in untrusted tags)
+- `src/server/guardrails/command-scanner.ts` — scans for fenced code, inline code, shell prompts, known binaries; redacts commands; ignores plain mentions (bluetooth service, your terminal, Wi-Fi)
+- `src/server/guardrails/untrusted.ts` — `stripLookalikeTags()`, `wrapUntrusted()`, `truncateForUntrusted()` (first 3K + last 3K)
+- `src/server/report/escalation.ts` — `buildEscalationReport()` (Markdown with case, steps table, outputs, likely cause)
+- `src/server.ts` — wired tools into `onChatMessage`, step_result metadata handling, command scanner on `onFinish`, phase-aware system prompt with catalog
+- UI components: `ScriptCard` (command/manual, risk badges, needs-admin, copy button, disruptive gate, collapsible Why/What-you-should-see, undo, result buttons, paste output), `HandoffBanner`, `CasePanel` (phase, OS, steps list, delete button), `ReportCard` (copy/download/mailto)
+- Tests: 42 tests — missingForHandoff (4), phases (9), command scanner (12), untrusted content (5), handoff tool (2), recommend_step tool (4), escalate tool (1), mark_resolved tool (2), handleStepResult (3), escalation report (1)
 
 ### M3 — Resilient model layer (2026-09-11)
 
@@ -77,15 +91,18 @@ M3 — Model registry, providers, router, quota ledger (complete)
 - `database_id` in `wrangler.jsonc` is a placeholder — human must run `npx wrangler d1 create stepfix` and fill it in
 - D1 and Vectorize resources don't exist yet — human must create them
 - `npm install` requires `--legacy-peer-deps` due to `@modelcontextprotocol/sdk` peer conflict
-- `npm run check` passes, `npm test` passes (169 tests: 1 sanity + 104 library + 9 token + 16 coordinator + 39 router/chaos/classify)
+- `npm run check` passes, `npm test` passes (211 tests: 1 sanity + 104 library + 9 token + 16 coordinator + 39 router/chaos/classify + 42 agent/guardrails/report)
 - `npm run lint:library` passes (0 errors, 4 info for unreachable entries — expected)
 - `npm run compile:library` is deterministic (verified)
 - Vectorize binding warns "does not support local development" — expected; the index doesn't exist yet
 - `npm run dev` chat streaming not manually verified yet — human needs to run `npm run dev` and send a message
-- Router streamTurn not wired into SupportSession.onChatMessage yet — still uses direct streamText. The router needs the Coordinator's RPC interface to call candidates()/report() from the session DO. This wiring happens in M4 when the agent tools and phases are built.
-- Admin API not manually tested — human can test with `curl -H "Authorization: Bearer $ADMIN_TOKEN" /api/admin/health`
+- Router streamTurn not yet wired into SupportSession.onChatMessage — tools are wired with direct streamText + mock model; full router wiring needs Coordinator RPC which happens when real providers are added
+- Admin API not manually tested
 - `SESSION_SIGNING_KEY` defaults to "dev-key-change-me" in dev — human must set a real key in `.dev.vars`
 - Gemini model IDs may carry `-preview` suffix — human should verify exact IDs via the Gemini API
+- search_kb tool is a stub (returns empty) — full implementation in M5
+- Server-driven continuation after handoff not yet implemented — needs `saveMessages` with synthetic system_event (M4 spec item 4)
+- Playwright E2E not added — M4 acceptance requires manual journey J1 test
 
 ## Decisions made
 
@@ -98,12 +115,15 @@ M3 — Model registry, providers, router, quota ledger (complete)
 - Coordinator admission logic extracted into `coordinator-logic.ts` (pure class, no Agent dependency) for unit testing; the DO wraps it
 - Queue promotion is lazy: `release()` frees a slot but doesn't auto-promote; `checkQueue()` promotes when the client polls and a slot is available
 - Router streamTurn uses `convertToModelMessages` inside the loop because `streamText` expects `ModelMessage[]`, not `UIMessage[]`
-- Router not yet wired into SupportSession.onChatMessage — direct streamText still used (will be replaced in M4)
+- Router not yet wired into SupportSession.onChatMessage — tools are wired with direct streamText + mock model
 - `isCooling()` checks kill switches first, then per-model quota, so a disabled provider works even without a prior report
+- Tools use a `ToolContext` interface (state + setState + sessionId) so they're testable without the DO
+- `prepareMessagesForModel` wraps long pastes (>500 chars) in `<untrusted>` tags but leaves short messages plain
+- Command scanner uses a plain-mention allowlist to avoid false positives on "the bluetooth service", "your terminal", etc.
 
 ## Next milestone
 
-M4 — Phases, tools, script cards, guardrails
+M5 — Knowledge base
 
 ## What the human must do next
 

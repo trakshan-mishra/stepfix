@@ -13,23 +13,22 @@ import { handleAdminRequest } from "./server/http/admin";
 import { verifyToken } from "./server/http/token";
 import { createMockModel } from "./server/llm/mock";
 import { Coordinator } from "./server/agents/coordinator";
+import { buildTools, handleStepResult } from "./server/agent/tools";
+import {
+  buildSystemPrompt,
+  formatCatalogSubset,
+  prepareMessagesForModel
+} from "./server/agent/prepare-messages";
+import { scanForCommands } from "./server/guardrails/command-scanner";
+import { type CaseFile, type Step, type Phase } from "./server/agent/case-file";
 import "./server/env-extra";
 
 export { Coordinator };
 
-type Phase = "support" | "technician" | "resolved" | "escalated" | "closed";
-
-interface StepRecord {
-  stepId: string;
-  scriptId: string;
-  status: string;
-  createdAt: number;
-}
-
 interface SessionState {
   phase: Phase;
-  caseFile: Record<string, unknown>;
-  steps: StepRecord[];
+  caseFile: CaseFile;
+  steps: Step[];
   degraded: boolean;
   counters: { userMessages: number; screenshots: number; violations: number };
   privacyMode: boolean;
@@ -39,8 +38,8 @@ interface SessionState {
 }
 
 const INITIAL_STATE: SessionState = {
-  phase: "support",
-  caseFile: {},
+  phase: "support" as Phase,
+  caseFile: { os: "unknown", facts: [] },
   steps: [],
   degraded: false,
   counters: { userMessages: 0, screenshots: 0, violations: 0 },
@@ -60,7 +59,6 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
         lastActiveAt: Date.now()
       });
     }
-
     this.schedule(24 * 3600, "executePurge");
   }
 
@@ -74,6 +72,32 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
       }
     });
 
+    const lastMessage = this.messages[this.messages.length - 1];
+    const metadata = lastMessage?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const kind = metadata?.kind as string | undefined;
+
+    if (kind === "step_result") {
+      const stepId = metadata?.stepId as string;
+      const status = metadata?.status as
+        | "ran"
+        | "worked"
+        | "failed"
+        | "cant_run";
+      const output = metadata?.output as string | undefined;
+      handleStepResult(
+        {
+          state: this.state,
+          setState: (s) => this.setState(s as SessionState),
+          sessionId: this.name
+        },
+        stepId,
+        status,
+        output
+      );
+    }
+
     const useMock = this.env.LLM_MODE === "mock";
     const model = useMock
       ? createMockModel()
@@ -84,18 +108,55 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
           });
         })();
 
-    const systemPrompt = this.buildSystemPrompt();
+    const phase = this.state.phase;
+    const catalogSubset =
+      phase === "technician"
+        ? formatCatalogSubset(
+            this.state.caseFile.os,
+            this.state.caseFile.category ?? "bluetooth"
+          )
+        : "";
+    const systemPrompt = buildSystemPrompt(
+      phase,
+      this.state.caseFile,
+      this.state.steps,
+      catalogSubset
+    );
+
+    const tools = buildTools({
+      state: this.state,
+      setState: (s) => this.setState(s as SessionState),
+      sessionId: this.name
+    });
+
+    const preparedMessages = prepareMessagesForModel(
+      this.messages,
+      this.state.steps
+    );
 
     const result = streamText({
       model,
       system: systemPrompt,
       messages: pruneMessages({
-        messages: await convertToModelMessages(this.messages),
+        messages: await convertToModelMessages(preparedMessages),
         toolCalls: "before-last-2-messages",
         reasoning: "before-last-message"
       }),
+      tools,
       stopWhen: stepCountIs(4),
-      abortSignal: options?.abortSignal
+      abortSignal: options?.abortSignal,
+      onFinish: ({ text }) => {
+        const scan = scanForCommands(text);
+        if (scan.hit) {
+          this.setState({
+            ...this.state,
+            counters: {
+              ...this.state.counters,
+              violations: this.state.counters.violations + 1
+            }
+          });
+        }
+      }
     });
 
     return result.toUIMessageStreamResponse();
@@ -116,12 +177,6 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
       });
     }
     return new Response("Not found", { status: 404 });
-  }
-
-  private buildSystemPrompt(): string {
-    const state = this.state;
-    const phaseLabel = state.phase;
-    return `You are stepfix, an AI support agent (${phaseLabel} phase). You help users fix their own computer problems on Linux (Ubuntu/Debian) and Windows 10/11. Be concise and friendly. You are an AI; if asked, say so. You never give commands in your text — commands appear only through script cards.`;
   }
 }
 
