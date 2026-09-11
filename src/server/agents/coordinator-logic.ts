@@ -1,4 +1,6 @@
 import { nanoid } from "nanoid";
+import type { ErrorClass } from "../llm/classify";
+import { CIRCUIT_OPEN_MS, CIRCUIT_THRESHOLD } from "../llm/classify";
 
 type SessionState = "active" | "queued" | "idle" | "released";
 
@@ -25,10 +27,32 @@ interface IpCount {
   dayStart: number;
 }
 
+export interface ModelQuota {
+  cooldownUntil: number;
+  consecutiveFailures: number;
+  disabled: boolean;
+  requestsThisMinute: number;
+  requestsToday: number;
+  tokensInToday: number;
+  tokensOutToday: number;
+  minuteStart: number;
+  dayStart: number;
+  lastRateLimitHeaders: Record<string, string | undefined>;
+}
+
+export interface KillSwitches {
+  disabledProviders: string[];
+  disabledModels: string[];
+  forceDegraded: boolean;
+  admissionsPaused: boolean;
+}
+
 export interface CoordinatorData {
   sessions: Record<string, SessionEntry>;
   queue: QueueEntry[];
   ipCounts: Record<string, IpCount>;
+  quotas: Record<string, ModelQuota>;
+  killSwitches: KillSwitches;
 }
 
 export type AdmitResult =
@@ -56,7 +80,33 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function createCoordinatorData(): CoordinatorData {
-  return { sessions: {}, queue: [], ipCounts: {} };
+  return {
+    sessions: {},
+    queue: [],
+    ipCounts: {},
+    quotas: {},
+    killSwitches: {
+      disabledProviders: [],
+      disabledModels: [],
+      forceDegraded: false,
+      admissionsPaused: false
+    }
+  };
+}
+
+function createModelQuota(now: number): ModelQuota {
+  return {
+    cooldownUntil: 0,
+    consecutiveFailures: 0,
+    disabled: false,
+    requestsThisMinute: 0,
+    requestsToday: 0,
+    tokensInToday: 0,
+    tokensOutToday: 0,
+    minuteStart: now,
+    dayStart: now,
+    lastRateLimitHeaders: {}
+  };
 }
 
 export class CoordinatorLogic {
@@ -181,6 +231,122 @@ export class CoordinatorLogic {
 
   queuedCount(): number {
     return this.data.queue.length;
+  }
+
+  isCooling(key: string, now: number = Date.now()): boolean {
+    const provider = key.split(":")[0];
+    if (this.data.killSwitches.disabledProviders.includes(provider))
+      return true;
+    if (this.data.killSwitches.disabledModels.includes(key)) return true;
+    const q = this.data.quotas[key];
+    if (!q) return false;
+    if (q.disabled) return true;
+    if (q.cooldownUntil > now) return true;
+    return false;
+  }
+
+  report(
+    key: string,
+    result: { ok: true } | { ok: false; errorClass: ErrorClass },
+    now: number = Date.now()
+  ): void {
+    if (!this.data.quotas[key]) {
+      this.data.quotas[key] = createModelQuota(now);
+    }
+    const q = this.data.quotas[key];
+
+    if (now - q.minuteStart > 60_000) {
+      q.requestsThisMinute = 0;
+      q.minuteStart = now;
+    }
+    if (now - q.dayStart > 86_400_000) {
+      q.requestsToday = 0;
+      q.tokensInToday = 0;
+      q.tokensOutToday = 0;
+      q.dayStart = now;
+    }
+    q.requestsThisMinute++;
+    q.requestsToday++;
+
+    if (result.ok) {
+      q.consecutiveFailures = 0;
+      return;
+    }
+
+    q.consecutiveFailures++;
+    const ec = result.errorClass;
+
+    if (ec.kind === "auth_error") {
+      q.disabled = true;
+      return;
+    }
+    if (ec.kind === "not_found") {
+      q.disabled = true;
+      return;
+    }
+    if (ec.kind === "rate_limit") {
+      q.cooldownUntil = now + ec.cooldownMs;
+      return;
+    }
+    if (
+      ec.kind === "timeout" ||
+      ec.kind === "server_error" ||
+      ec.kind === "network_error" ||
+      ec.kind === "unknown"
+    ) {
+      q.cooldownUntil = now + ec.cooldownMs;
+      if (q.consecutiveFailures >= CIRCUIT_THRESHOLD) {
+        q.cooldownUntil = now + CIRCUIT_OPEN_MS;
+      }
+      return;
+    }
+  }
+
+  candidates(keys: string[], now: number = Date.now()): string[] {
+    if (this.data.killSwitches.forceDegraded) return [];
+    return keys.filter((k) => !this.isCooling(k, now));
+  }
+
+  getQuota(key: string): ModelQuota | undefined {
+    return this.data.quotas[key];
+  }
+
+  getAllQuotas(): Record<string, ModelQuota> {
+    return this.data.quotas;
+  }
+
+  getKillSwitches(): KillSwitches {
+    return this.data.killSwitches;
+  }
+
+  setKillSwitches(ks: Partial<KillSwitches>): void {
+    this.data.killSwitches = { ...this.data.killSwitches, ...ks };
+  }
+
+  disableProvider(provider: string): void {
+    if (!this.data.killSwitches.disabledProviders.includes(provider)) {
+      this.data.killSwitches.disabledProviders.push(provider);
+    }
+  }
+
+  enableProvider(provider: string): void {
+    this.data.killSwitches.disabledProviders =
+      this.data.killSwitches.disabledProviders.filter((p) => p !== provider);
+  }
+
+  disableModel(key: string): void {
+    if (!this.data.killSwitches.disabledModels.includes(key)) {
+      this.data.killSwitches.disabledModels.push(key);
+    }
+  }
+
+  enableModel(key: string): void {
+    this.data.killSwitches.disabledModels =
+      this.data.killSwitches.disabledModels.filter((k) => k !== key);
+  }
+
+  forceDegraded(value: boolean): void {
+    this.data.killSwitches.forceDegraded = value;
   }
 
   private promoteFromQueue(now: number = Date.now()): void {

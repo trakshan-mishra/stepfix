@@ -2,9 +2,21 @@
 
 ## Current milestone
 
-M2 — Sessions, admission, chat skeleton (complete)
+M3 — Model registry, providers, router, quota ledger (complete)
 
 ## What's done
+
+### M3 — Resilient model layer (2026-09-11)
+
+- `src/server/llm/models.config.ts` — 12-entry registry (groq: gpt-oss-20b/120b, qwen3.8/3.6-27b; gemini: flash/flash-lite via env vars; workers-ai: glm-4.7-flash, gpt-oss-120b, llama-4-scout, bge-small; zai: glm-4.7-flash, glm-4.6v-flash). Role chains, limits, privacy mode filtering (removes gemini+zai).
+- `src/server/llm/providers.ts` — builds AI SDK models per registry entry using createGroq, createGoogle, createOpenAICompatible (Z.ai), createWorkersAI.
+- `src/server/llm/router.ts` — `streamTurn` with TTFT timers per model, maxRetries 0, failover before first token, continuation after mid-stream failure, 20s turn deadline, user-abort not failover, chaos injection.
+- `src/server/llm/classify.ts` — error classification (429→rate_limit with retry-after, 401/403→auth_error/disable, 404→not_found/disable, 5xx→server_error 30s, timeout→20s, network→30s, circuit breaker after 3 consecutive→2min).
+- `src/server/llm/chaos.ts` — CHAOS flag parsing (429, timeout, cut, all_down, vectorize_down, d1_down), ignored in production.
+- `src/server/agents/coordinator-logic.ts` — added quota ledger: per-model cooldown/failure tracking, candidates(), report(), kill switches (disabledProviders, disabledModels, forceDegraded, admissionsPaused).
+- `src/server/http/admin.ts` — admin API with ADMIN_TOKEN: GET /api/admin/health (provider status, cooldowns, kill switches), POST /api/admin/kill-switch (disable/enable provider/model, force degraded).
+- Wired admin routes into `src/server.ts`.
+- Tests: 39 tests — classify table (10: 429, retry-after, 401, 403, 404, 500, 503, timeout, network, unknown), chaos parsing (10: empty, 429, multiple, all_down, vectorize/d1, invalid, production ignore, dev pass, prob 0/1), privacy mode (4: support/technician/vision filtering, gemini kept off), model registry (5: 12 entries, unique keys, all enabled, env var model IDs, trains-on-inputs), coordinator quota ledger (10: report ok/fail, auth disable, rate limit cooldown, circuit breaker, candidates filter, forceDegraded, provider kill switch, model kill switch)
 
 ### M2 — Sessions, admission, chat skeleton (2026-09-11)
 
@@ -65,14 +77,15 @@ M2 — Sessions, admission, chat skeleton (complete)
 - `database_id` in `wrangler.jsonc` is a placeholder — human must run `npx wrangler d1 create stepfix` and fill it in
 - D1 and Vectorize resources don't exist yet — human must create them
 - `npm install` requires `--legacy-peer-deps` due to `@modelcontextprotocol/sdk` peer conflict
-- `npm run check` passes, `npm test` passes (130 tests: 1 sanity + 104 library + 9 token + 16 coordinator)
+- `npm run check` passes, `npm test` passes (169 tests: 1 sanity + 104 library + 9 token + 16 coordinator + 39 router/chaos/classify)
 - `npm run lint:library` passes (0 errors, 4 info for unreachable entries — expected)
 - `npm run compile:library` is deterministic (verified)
 - Vectorize binding warns "does not support local development" — expected; the index doesn't exist yet
 - `npm run dev` chat streaming not manually verified yet — human needs to run `npm run dev` and send a message
-- Turnstile widget loads from Cloudflare CDN — needs internet in dev
-- Coordinator promotion is lazy (only on checkQueue poll), not automatic on release — by design, so clients discover admission via polling
+- Router streamTurn not wired into SupportSession.onChatMessage yet — still uses direct streamText. The router needs the Coordinator's RPC interface to call candidates()/report() from the session DO. This wiring happens in M4 when the agent tools and phases are built.
+- Admin API not manually tested — human can test with `curl -H "Authorization: Bearer $ADMIN_TOKEN" /api/admin/health`
 - `SESSION_SIGNING_KEY` defaults to "dev-key-change-me" in dev — human must set a real key in `.dev.vars`
+- Gemini model IDs may carry `-preview` suffix — human should verify exact IDs via the Gemini API
 
 ## Decisions made
 
@@ -84,11 +97,13 @@ M2 — Sessions, admission, chat skeleton (complete)
 - `renderCommand` lives in `src/server/library/render.ts` (separate from index.ts) so tests can import it without the compiled library JSON
 - Coordinator admission logic extracted into `coordinator-logic.ts` (pure class, no Agent dependency) for unit testing; the DO wraps it
 - Queue promotion is lazy: `release()` frees a slot but doesn't auto-promote; `checkQueue()` promotes when the client polls and a slot is available
-- `LanguageModelV4StreamPart` requires `id` fields on text parts; mock model generates per-message IDs
+- Router streamTurn uses `convertToModelMessages` inside the loop because `streamText` expects `ModelMessage[]`, not `UIMessage[]`
+- Router not yet wired into SupportSession.onChatMessage — direct streamText still used (will be replaced in M4)
+- `isCooling()` checks kill switches first, then per-model quota, so a disabled provider works even without a prior report
 
 ## Next milestone
 
-M3 — Model registry, providers, router, quota ledger
+M4 — Phases, tools, script cards, guardrails
 
 ## What the human must do next
 
