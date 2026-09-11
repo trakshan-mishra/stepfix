@@ -10,6 +10,7 @@ import { createWorkersAI } from "workers-ai-provider";
 import { handleLibraryRequest } from "./server/http/library";
 import { handleSessionRequest } from "./server/http/session";
 import { handleAdminRequest } from "./server/http/admin";
+import { handleFeedbackRequest } from "./server/http/feedback";
 import { verifyToken } from "./server/http/token";
 import { createMockModel } from "./server/llm/mock";
 import { Coordinator } from "./server/agents/coordinator";
@@ -190,6 +191,9 @@ export default {
 
     const adminResponse = await handleAdminRequest(request, env);
     if (adminResponse) return adminResponse;
+
+    const feedbackResponse = await handleFeedbackRequest(request, env);
+    if (feedbackResponse) return feedbackResponse;
 
     if (new URL(request.url).pathname.startsWith("/agents/")) {
       const auth = new URL(request.url).searchParams.get("token") ?? "";
