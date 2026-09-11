@@ -104,11 +104,11 @@ describe("RRF (Reciprocal Rank Fusion)", () => {
   it("items in both lists rank higher", () => {
     const lexical = [
       { id: "b", score: 1 },
-      { id: "a", score: 0.5 },
+      { id: "a", score: 0.5 }
     ];
     const semantic = [
       { id: "b", score: 0.9 },
-      { id: "a", score: 0.8 },
+      { id: "a", score: 0.8 }
     ];
     const fused = rrf(lexical, semantic, 60);
     const aScore = fused.find((f) => f.id === "a")?.score ?? 0;

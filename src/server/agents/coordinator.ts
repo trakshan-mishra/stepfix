@@ -2,20 +2,37 @@ import { Agent } from "agents";
 import {
   CoordinatorLogic,
   createCoordinatorData,
-  type CoordinatorData
+  type CoordinatorData,
+  type ModelQuota,
+  type KillSwitches
 } from "./coordinator-logic";
 
 const ALARM_INTERVAL_MS = 60 * 1000;
+
+function ensureState(state: CoordinatorData | undefined): CoordinatorData {
+  if (!state || !state.sessions) {
+    return createCoordinatorData();
+  }
+  if (!state.quotas) state.quotas = {};
+  if (!state.killSwitches) {
+    state.killSwitches = {
+      disabledProviders: [],
+      disabledModels: [],
+      forceDegraded: false,
+      admissionsPaused: false
+    };
+  }
+  return state;
+}
 
 export class Coordinator extends Agent<Env, CoordinatorData> {
   maxStateTtl = 24 * 60 * 60 * 1000;
   private logic: CoordinatorLogic | null = null;
 
   onStart() {
-    if (!this.state.sessions) this.state.sessions = {};
-    if (!this.state.queue) this.state.queue = [];
-    if (!this.state.ipCounts) this.state.ipCounts = {};
-    this.logic = new CoordinatorLogic(this.state, {
+    const data = ensureState(this.state);
+    this.setState(data);
+    this.logic = new CoordinatorLogic(data, {
       maxActive: this.env.MAX_ACTIVE_SESSIONS
         ? parseInt(this.env.MAX_ACTIVE_SESSIONS, 10)
         : undefined
@@ -25,10 +42,9 @@ export class Coordinator extends Agent<Env, CoordinatorData> {
 
   private getLogic(): CoordinatorLogic {
     if (!this.logic) {
-      if (!this.state.sessions) this.state.sessions = {};
-      if (!this.state.queue) this.state.queue = [];
-      if (!this.state.ipCounts) this.state.ipCounts = {};
-      this.logic = new CoordinatorLogic(this.state, {
+      const data = ensureState(this.state);
+      this.setState(data);
+      this.logic = new CoordinatorLogic(data, {
         maxActive: this.env.MAX_ACTIVE_SESSIONS
           ? parseInt(this.env.MAX_ACTIVE_SESSIONS, 10)
           : undefined
@@ -39,8 +55,6 @@ export class Coordinator extends Agent<Env, CoordinatorData> {
 
   async alarm() {
     this.getLogic().sweepIdle();
-    this.ctx.storage.put("sessions", this.state.sessions);
-    this.ctx.storage.put("queue", this.state.queue);
     if (
       this.getLogic().activeCount() > 0 ||
       this.getLogic().queuedCount() > 0
@@ -57,29 +71,47 @@ export class Coordinator extends Agent<Env, CoordinatorData> {
     const logic = this.getLogic();
     if (maxActive) logic.maxActive = maxActive;
     const result = logic.admit({ ipHash }, sessionId);
-    this.ctx.storage.put("sessions", this.state.sessions);
-    this.ctx.storage.put("queue", this.state.queue);
     return result;
   }
 
   heartbeat(sessionId: string) {
     this.getLogic().heartbeat(sessionId);
-    this.ctx.storage.put("sessions", this.state.sessions);
   }
 
   release(sessionId: string) {
     this.getLogic().release(sessionId);
-    this.ctx.storage.put("sessions", this.state.sessions);
-    this.ctx.storage.put("queue", this.state.queue);
   }
 
   checkQueue(ticket: string) {
-    const result = this.getLogic().checkQueue(ticket);
-    if (result.status === "admitted") {
-      this.ctx.storage.put("sessions", this.state.sessions);
-      this.ctx.storage.put("queue", this.state.queue);
-    }
-    return result;
+    return this.getLogic().checkQueue(ticket);
+  }
+
+  getAllQuotas(): Record<string, ModelQuota> {
+    return this.getLogic().getAllQuotas();
+  }
+
+  getKillSwitches(): KillSwitches {
+    return this.getLogic().getKillSwitches();
+  }
+
+  disableProvider(provider: string): void {
+    this.getLogic().disableProvider(provider);
+  }
+
+  enableProvider(provider: string): void {
+    this.getLogic().enableProvider(provider);
+  }
+
+  disableModel(key: string): void {
+    this.getLogic().disableModel(key);
+  }
+
+  enableModel(key: string): void {
+    this.getLogic().enableModel(key);
+  }
+
+  forceDegraded(value: boolean): void {
+    this.getLogic().forceDegraded(value);
   }
 
   async onRequest(request: Request): Promise<Response> {
@@ -98,4 +130,4 @@ export class Coordinator extends Agent<Env, CoordinatorData> {
 }
 
 export { CoordinatorLogic, createCoordinatorData };
-export type { CoordinatorData };
+export type { CoordinatorData, ModelQuota, KillSwitches };
