@@ -1,0 +1,27 @@
+# stepfix — local development secrets
+# Copy to .dev.vars and fill with real values. Never commit .dev.vars.
+# See spec/09-accounts-and-keys.md for where to get each key.
+
+# --- Required from M3 ---
+GROQ_API_KEY=
+GEMINI_API_KEY=
+# Gemini model IDs (vars, not secrets — put in .dev.vars for local dev):
+GEMINI_FLASH_MODEL=
+GEMINI_FLASH_LITE_MODEL=
+
+# --- Required from M2 ---
+# Cloudflare Turnstile test keys (always pass): 1x00000000000000000000AA / 1x0000000000000000000000000000000AA
+TURNSTILE_SECRET_KEY=
+SESSION_SIGNING_KEY=
+ADMIN_TOKEN=
+
+# --- Optional from M3 ---
+ZAI_API_KEY=
+ZAI_BASE_URL=https://api.z.ai/api/paas/v4
+
+# --- Optional (AI Gateway) ---
+CF_ACCOUNT_ID=
+AI_GATEWAY_ID=
+
+# --- Optional (tracing) ---
+OPIK_API_KEY=

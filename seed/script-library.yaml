@@ -1,0 +1,1959 @@
+# Seed script library — DRAFT, NOT REVIEWED
+#
+# Every entry has reviewed_by: null. Run each command on a real machine, save the real output to
+# tests/fixtures/library/<id>.txt, tune `expect` patterns, then set reviewed_by / tested_on.
+# Outputs differ across distro, kernel, BlueZ version and Windows build.
+#
+# Conventions (see 05-script-library.md):
+# - regex patterns are YAML single-quoted so backslashes are literal; matched case-insensitive, multiline
+# - special goto targets: RESOLVED, ESCALATE, FLOW_ENTRY
+# - shell: any  = same command works in bash and PowerShell
+# - params with no value in degraded mode are asked via a small select/input on the card
+# - the lint's pipe allowlist must tokenize with quotes respected ("a|b" inside quotes is not a pipe)
+
+flows:
+  - { os_family: linux, category: bluetooth, entry: linux.bt.rfkill_list }
+  - { os_family: linux, category: wifi, entry: linux.net.radio }
+  - { os_family: linux, category: dev_cli, entry: linux.dev.which }
+  - { os_family: windows, category: bluetooth, entry: win.bt.devices }
+  - { os_family: windows, category: wifi, entry: win.net.wlan_interfaces }
+  - { os_family: windows, category: dev_cli, entry: win.dev.where }
+
+scripts:
+  # ─────────────────────────────── Linux · system ───────────────────────────────
+
+  - id: linux.sys.os_release
+    version: 1
+    title: "Show your Linux version"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: system
+    risk: read_only
+    needs_admin: false
+    command: "cat /etc/os-release"
+    when_to_use: "When the Linux distribution or version is unknown."
+    explanation: |
+      Prints a small text file every modern Linux system has, which names the distribution
+      and its version. Different versions ship different Bluetooth and network tools, so this
+      helps pick the right steps. It only reads a file.
+    expect:
+      - {
+          pattern: "^PRETTY_NAME=",
+          meaning: "The line starting with PRETTY_NAME is your distribution and version."
+        }
+    next:
+      - default: FLOW_ENTRY
+    undo: null
+    sources:
+      - {
+          title: "os-release(5) man page",
+          url: "https://www.freedesktop.org/software/systemd/man/latest/os-release.html",
+          license: "link-only"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.sys.kernel
+    version: 1
+    title: "Show your kernel version"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: system
+    risk: read_only
+    needs_admin: false
+    command: "uname -r"
+    when_to_use: "When a driver or firmware problem is suspected and the kernel version matters."
+    explanation: |
+      Prints the version of the Linux kernel you are running. Drivers for Wi-Fi and Bluetooth
+      live in the kernel, so some problems only affect certain versions. It changes nothing.
+    expect:
+      - { pattern: '^\d+\.\d+', meaning: "This is your kernel version." }
+    next:
+      - default: FLOW_ENTRY
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  # ─────────────────────────────── Linux · Bluetooth ───────────────────────────────
+
+  - id: linux.bt.rfkill_list
+    version: 1
+    title: "Check if Bluetooth is blocked"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: "rfkill list bluetooth"
+    when_to_use: "First check for any Bluetooth problem on Linux."
+    explanation: |
+      Linux can switch radios off in software ("soft block") or through a physical switch or
+      BIOS setting ("hard block"). This lists the Bluetooth radios the system knows about and
+      whether either block is on. It only reads status.
+    expect:
+      - {
+          pattern: "Soft blocked: yes",
+          meaning: "Bluetooth is switched off in software. We can switch it back on."
+        }
+      - {
+          pattern: "Hard blocked: yes",
+          meaning: "A physical switch, function key or BIOS setting is turning Bluetooth off."
+        }
+      - {
+          pattern: 'Soft blocked: no\s*\n\s*Hard blocked: no',
+          meaning: "Nothing is blocking Bluetooth."
+        }
+      - { pattern: '^\s*$', meaning: "No Bluetooth radio was found at all." }
+    next:
+      - when: { output_matches: "Soft blocked: yes" }
+        goto: linux.bt.rfkill_unblock
+      - when: { output_matches: "Hard blocked: yes" }
+        goto: manual.linux.bt.hard_block
+      - when: { output_empty: true }
+        goto: linux.bt.usb_list
+      - default: linux.bt.service_status
+    undo: null
+    sources:
+      - {
+          title: "ArchWiki — Bluetooth",
+          url: "https://wiki.archlinux.org/title/Bluetooth",
+          license: "GFDL-1.3-or-later"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.rfkill_unblock
+    version: 1
+    title: "Switch Bluetooth back on (remove the software block)"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: "sudo rfkill unblock bluetooth"
+    when_to_use: 'When rfkill shows "Soft blocked: yes" for Bluetooth.'
+    explanation: |
+      Removes the software block that is keeping the Bluetooth radio off. It is the same as
+      flipping Bluetooth back on, just more direct. It asks for your password because it
+      changes a system setting. It prints nothing when it works.
+    expect:
+      - { pattern: '^\s*$', meaning: "No output means it worked." }
+      - {
+          pattern: "Operation not permitted",
+          meaning: "It needs administrator rights; make sure sudo is at the start."
+        }
+    next:
+      - default: linux.bt.controller_show
+    undo: "sudo rfkill block bluetooth"
+    sources:
+      - {
+          title: "ArchWiki — Bluetooth",
+          url: "https://wiki.archlinux.org/title/Bluetooth",
+          license: "GFDL-1.3-or-later"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.service_status
+    version: 1
+    title: "Check the Bluetooth service"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: "systemctl status bluetooth --no-pager"
+    when_to_use: "When nothing blocks Bluetooth but it still doesn't work."
+    explanation: |
+      Bluetooth on Linux needs a background program (the bluetooth service, part of BlueZ)
+      to be running. This shows whether it is running, stopped, or not installed, plus its
+      last few log lines. It only reads status.
+    expect:
+      - {
+          pattern: 'Active: active \(running\)',
+          meaning: "The Bluetooth service is running."
+        }
+      - {
+          pattern: 'Active: inactive \(dead\)',
+          meaning: "The Bluetooth service is stopped."
+        }
+      - {
+          pattern: 'Loaded: loaded \([^;]+; disabled',
+          meaning: "The service is set not to start when the computer boots."
+        }
+      - {
+          pattern: "could not be found|not-found",
+          meaning: "The Bluetooth service (BlueZ) doesn't seem to be installed."
+        }
+    next:
+      - when: { output_matches: "could not be found|not-found" }
+        goto: linux.bt.bluez_installed
+      - when: { output_matches: "Active: inactive|Active: failed" }
+        goto: linux.bt.service_enable
+      - when: { output_matches: 'Active: active \(running\)' }
+        goto: linux.bt.controller_show
+      - default: linux.bt.journal
+    undo: null
+    sources:
+      - {
+          title: "ArchWiki — Bluetooth",
+          url: "https://wiki.archlinux.org/title/Bluetooth",
+          license: "GFDL-1.3-or-later"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.service_enable
+    version: 1
+    title: "Start the Bluetooth service and keep it on at boot"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: "sudo systemctl enable --now bluetooth"
+    when_to_use: "When the bluetooth service is stopped or disabled."
+    explanation: |
+      Starts the Bluetooth service now and sets it to start automatically every time the
+      computer boots. Without it running, no Bluetooth device can connect.
+    expect:
+      - {
+          pattern: 'Created symlink|^\s*$|Synchronizing state',
+          meaning: "It worked."
+        }
+      - {
+          pattern: "Failed to (start|enable)",
+          meaning: "The service failed to start; the logs will say why."
+        }
+    next:
+      - when: { output_matches: "Failed to (start|enable)" }
+        goto: linux.bt.journal
+      - default: linux.bt.service_status
+    undo: "sudo systemctl disable --now bluetooth"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.service_restart
+    version: 1
+    title: "Restart the Bluetooth service"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: restart
+    needs_admin: true
+    command: "sudo systemctl restart bluetooth"
+    when_to_use: "When the service runs but devices won't connect or the adapter seems stuck."
+    explanation: |
+      Stops and starts the Bluetooth service, like turning it off and on again. Connected
+      Bluetooth devices disconnect for a few seconds and usually reconnect on their own.
+    expect:
+      - { pattern: '^\s*$', meaning: "No output means it restarted." }
+    next:
+      - default: linux.bt.controller_show
+    undo: "n/a — restarts the service; devices reconnect on their own"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.controller_show
+    version: 1
+    title: "Check the Bluetooth adapter is powered on"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: "bluetoothctl show"
+    when_to_use: "After the service is running, to see if the adapter is detected and powered."
+    explanation: |
+      Asks the Bluetooth service about your Bluetooth adapter: whether it's there and whether
+      it's powered on. If it hangs on "Waiting to connect to bluetoothd", press Ctrl+C;
+      that means the service isn't running.
+    expect:
+      - { pattern: "Powered: yes", meaning: "The adapter is on." }
+      - {
+          pattern: "Powered: no",
+          meaning: "The adapter is detected but switched off."
+        }
+      - {
+          pattern: "No default controller available",
+          meaning: "The Bluetooth service can't see any adapter."
+        }
+      - {
+          pattern: "Waiting to connect to bluetoothd",
+          meaning: "The Bluetooth service isn't running."
+        }
+    next:
+      - when: { output_matches: "Waiting to connect to bluetoothd" }
+        goto: linux.bt.service_status
+      - when: { output_matches: "No default controller available" }
+        goto: linux.bt.usb_list
+      - when: { output_matches: "Powered: no" }
+        goto: linux.bt.power_on
+      - when: { output_matches: "Powered: yes" }
+        goto: manual.linux.bt.try_connect
+      - default: linux.bt.journal
+    undo: null
+    sources:
+      - {
+          title: "ArchWiki — Bluetooth",
+          url: "https://wiki.archlinux.org/title/Bluetooth",
+          license: "GFDL-1.3-or-later"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.power_on
+    version: 1
+    title: "Power on the Bluetooth adapter"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: safe_change
+    needs_admin: false
+    command: "bluetoothctl power on"
+    when_to_use: 'When bluetoothctl show says "Powered: no".'
+    explanation: |
+      Tells the Bluetooth service to switch the adapter on. It's the same as the Bluetooth
+      toggle in Settings. If something is blocking the radio, it will say so.
+    expect:
+      - {
+          pattern: "Changing power on succeeded",
+          meaning: "The adapter is now on."
+        }
+      - {
+          pattern: "Blocked|Failed to set power on",
+          meaning: "Something is blocking the radio."
+        }
+    next:
+      - when: { output_matches: "Blocked|Failed to set power on" }
+        goto: linux.bt.rfkill_list
+      - default: manual.linux.bt.try_connect
+    undo: "bluetoothctl power off"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.usb_list
+    version: 1
+    title: "Look for the Bluetooth hardware"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: 'lsusb | grep -i -E "bluetooth|wireless"'
+    when_to_use: "When no Bluetooth adapter is detected at all."
+    explanation: |
+      Most laptop Bluetooth chips are connected over USB inside the machine. This lists USB
+      devices and keeps only lines that mention Bluetooth or wireless. An empty result means
+      the system can't see the chip, which points to hardware, BIOS settings or drivers.
+    expect:
+      - {
+          pattern: '\S',
+          meaning: "The Bluetooth hardware is visible to the system."
+        }
+      - {
+          pattern: '^\s*$',
+          meaning: "No Bluetooth hardware is visible over USB."
+        }
+    next:
+      - default: linux.bt.kernel_log
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.kernel_log
+    version: 1
+    title: "Check the system log for Bluetooth driver errors"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: true
+    command: 'sudo dmesg | grep -i -E "bluetooth|btusb|hci0|firmware"'
+    when_to_use: "When the adapter is missing or behaves oddly, to find driver or firmware errors."
+    explanation: |
+      The kernel keeps a log of hardware events since boot. This shows only the lines about
+      Bluetooth, its USB driver (btusb) and firmware. Missing firmware or timeouts show up
+      here. It needs your password because the kernel log is restricted on Ubuntu.
+    expect:
+      - {
+          pattern: "firmware.*(not found|failed|error)|Failed to load firmware|direct firmware load .* failed",
+          meaning: "The Bluetooth chip's firmware didn't load."
+        }
+      - {
+          pattern: "hci0: .*(timeout|timed out)",
+          meaning: "The adapter isn't responding to the driver."
+        }
+    next:
+      - when:
+          {
+            output_matches: "firmware.*(not found|failed|error)|Failed to load firmware|direct firmware load .* failed"
+          }
+        goto: ESCALATE
+      - when: { output_matches: "hci0: .*(timeout|timed out)" }
+        goto: linux.bt.reload_driver
+      - default: linux.bt.journal
+    undo: null
+    sources:
+      - {
+          title: "ArchWiki — Bluetooth (troubleshooting)",
+          url: "https://wiki.archlinux.org/title/Bluetooth",
+          license: "GFDL-1.3-or-later"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.journal
+    version: 1
+    title: "Read the Bluetooth service log"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: true
+    command: "sudo journalctl -u bluetooth -b --no-pager -n 50"
+    when_to_use: "When the service runs but something still fails and we need its error messages."
+    explanation: |
+      Shows the last 50 log lines from the Bluetooth service since this boot. Error messages
+      here usually name the exact problem, such as a failed setting or a device refusing to pair.
+    expect:
+      - {
+          pattern: "Failed|Error|error",
+          meaning: "There are errors worth reading in these lines."
+        }
+    next:
+      - default: linux.bt.service_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.reload_driver
+    version: 1
+    title: "Reload the Bluetooth USB driver"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: bluetooth
+    risk: disruptive
+    needs_admin: true
+    compound: true
+    command: "sudo modprobe -r btusb && sudo modprobe btusb"
+    when_to_use: "When the adapter times out or is stuck, and restarting the service didn't help."
+    explanation: |
+      Unloads the Bluetooth USB driver and loads it again, like unplugging and replugging the
+      chip. All Bluetooth devices disconnect. If it says the module is in use, a restart of
+      the computer does the same thing more reliably.
+    expect:
+      - { pattern: '^\s*$', meaning: "The driver reloaded." }
+      - {
+          pattern: "is in use",
+          meaning: "The driver is busy; restart the computer instead."
+        }
+    next:
+      - when: { output_matches: "is in use" }
+        goto: manual.reboot
+      - default: linux.bt.controller_show
+    undo: "If Bluetooth stays missing, restart the computer; the driver loads again at boot."
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.bluez_installed
+    version: 1
+    title: "Check that BlueZ (the Bluetooth software) is installed"
+    kind: command
+    os: [ubuntu, debian]
+    shell: bash
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: 'dpkg -s bluez | grep -i -E "^(status|version)"'
+    when_to_use: "When the bluetooth service can't be found."
+    explanation: |
+      Asks the package manager whether BlueZ, the standard Linux Bluetooth software, is
+      installed, and which version. It only reads the package database.
+    expect:
+      - {
+          pattern: "Status: install ok installed",
+          meaning: "BlueZ is installed."
+        }
+      - { pattern: "is not installed", meaning: "BlueZ is not installed." }
+    next:
+      - when: { output_matches: "is not installed" }
+        goto: linux.bt.install_bluez
+      - default: linux.bt.service_enable
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.bt.install_bluez
+    version: 1
+    title: "Install BlueZ from Ubuntu's official packages"
+    kind: command
+    os: [ubuntu, debian]
+    shell: bash
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: "sudo apt install bluez"
+    when_to_use: "When dpkg says bluez is not installed."
+    explanation: |
+      Installs BlueZ from your distribution's official, signed package repositories. It asks
+      you to confirm before installing. It downloads only from the same place your normal
+      system updates come from.
+    expect:
+      - {
+          pattern: "Setting up bluez|is already the newest version",
+          meaning: "BlueZ is installed."
+        }
+    next:
+      - default: linux.bt.service_enable
+    undo: "sudo apt remove bluez"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.linux.bt.hard_block
+    version: 1
+    title: "Turn off the hardware switch for wireless"
+    kind: manual
+    os: [ubuntu, debian, linux_other]
+    shell: gui
+    category: bluetooth
+    risk: safe_change
+    needs_admin: false
+    manual_steps:
+      - "Look for a key with an antenna or airplane icon, often Fn plus one of F2–F12, and press it once."
+      - "Check the sides of the laptop for a small wireless on/off switch."
+      - "If neither exists, the block may be a BIOS/UEFI setting. That's a job for a person, so tell me if the key didn't help."
+    when_to_use: 'When rfkill shows "Hard blocked: yes".'
+    explanation: |
+      A hard block is set by hardware, a function key or the BIOS, not by Linux, so no command
+      can remove it. Pressing the wireless key or flipping the switch is the usual fix.
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: linux.bt.rfkill_list
+      - default: ESCALATE
+    undo: "Press the same key or flip the switch back."
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.linux.bt.try_connect
+    version: 1
+    title: "Try connecting your Bluetooth device now"
+    kind: manual
+    os: [ubuntu, debian, linux_other]
+    shell: gui
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - "Open Settings → Bluetooth and make sure Bluetooth is on."
+      - "Put your device (headphones, mouse…) in pairing mode."
+      - 'Select it in the list and connect. If it was paired before and won''t connect, click it and choose "Remove Device", then pair again.'
+    when_to_use: "After the adapter is on, to check if the original problem is fixed."
+    explanation: |
+      Now that the adapter is working, this checks the thing you actually care about:
+      connecting your device. Removing and re-pairing clears old pairing data that often
+      breaks after updates.
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: RESOLVED
+      - default: linux.bt.journal
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  # ─────────────────────────────── Linux · Wi-Fi / network ───────────────────────────────
+
+  - id: linux.net.radio
+    version: 1
+    title: "Check if Wi-Fi is switched on"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "nmcli radio wifi"
+    when_to_use: "First check for Wi-Fi problems on Linux with NetworkManager (Ubuntu default)."
+    explanation: |
+      Asks NetworkManager, the program that manages networks on Ubuntu, whether the Wi-Fi
+      radio is enabled. It prints one word and changes nothing.
+    expect:
+      - { pattern: "^enabled", meaning: "Wi-Fi is switched on." }
+      - { pattern: "^disabled", meaning: "Wi-Fi is switched off." }
+      - {
+          pattern: "command not found",
+          meaning: "NetworkManager isn't installed; this machine manages networks differently."
+        }
+    next:
+      - when: { output_matches: "^disabled" }
+        goto: linux.net.wifi_on
+      - when: { output_matches: "command not found" }
+        goto: ESCALATE
+      - default: linux.net.device_status
+    undo: null
+    sources:
+      - {
+          title: "ArchWiki — NetworkManager",
+          url: "https://wiki.archlinux.org/title/NetworkManager",
+          license: "GFDL-1.3-or-later"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.wifi_on
+    version: 1
+    title: "Switch Wi-Fi on"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: safe_change
+    needs_admin: false
+    command: "nmcli radio wifi on"
+    when_to_use: "When nmcli says Wi-Fi is disabled."
+    explanation: |
+      Turns the Wi-Fi radio on, the same as the Wi-Fi toggle in Settings. It prints nothing
+      when it works. If a hardware switch is off, it won't be able to turn it on.
+    expect:
+      - { pattern: '^\s*$', meaning: "No output means it worked." }
+    next:
+      - default: linux.net.device_status
+    undo: "nmcli radio wifi off"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.device_status
+    version: 1
+    title: "See the state of your Wi-Fi adapter"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "nmcli device status"
+    when_to_use: "To see whether the Wi-Fi adapter exists and whether it's connected."
+    explanation: |
+      Lists your network adapters and their state: connected, disconnected, or unavailable.
+      "Unavailable" usually means the radio is blocked or the driver has a problem.
+    expect:
+      - {
+          pattern: '\bwifi\s+connected',
+          meaning: "Wi-Fi is connected to a network."
+        }
+      - {
+          pattern: '\bwifi\s+disconnected',
+          meaning: "Wi-Fi works but isn't connected to a network."
+        }
+      - {
+          pattern: '\bwifi\s+unavailable',
+          meaning: "The Wi-Fi adapter is blocked or not ready."
+        }
+    next:
+      - when: { output_matches: '\bwifi\s+unavailable' }
+        goto: linux.net.rfkill_wifi
+      - when: { output_matches: '\bwifi\s+connected' }
+        goto: linux.net.ping_ip
+      - when: { output_matches: '\bwifi\s+disconnected' }
+        goto: manual.linux.net.connect
+      - default: ESCALATE
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.rfkill_wifi
+    version: 1
+    title: "Check if Wi-Fi is blocked"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "rfkill list wifi"
+    when_to_use: "When the Wi-Fi adapter is unavailable."
+    explanation: |
+      Shows whether the Wi-Fi radio is blocked in software or by a hardware switch. It only
+      reads status.
+    expect:
+      - {
+          pattern: "Soft blocked: yes",
+          meaning: "Wi-Fi is switched off in software."
+        }
+      - {
+          pattern: "Hard blocked: yes",
+          meaning: "A hardware switch or key is turning Wi-Fi off."
+        }
+    next:
+      - when: { output_matches: "Soft blocked: yes" }
+        goto: linux.net.rfkill_unblock_wifi
+      - when: { output_matches: "Hard blocked: yes" }
+        goto: manual.linux.net.hard_block
+      - default: ESCALATE
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.rfkill_unblock_wifi
+    version: 1
+    title: "Remove the software block on Wi-Fi"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: safe_change
+    needs_admin: true
+    command: "sudo rfkill unblock wifi"
+    when_to_use: 'When rfkill shows Wi-Fi "Soft blocked: yes".'
+    explanation: |
+      Removes the software block that keeps the Wi-Fi radio off. It asks for your password
+      because it changes a system setting.
+    expect:
+      - { pattern: '^\s*$', meaning: "No output means it worked." }
+    next:
+      - default: linux.net.device_status
+    undo: "sudo rfkill block wifi"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.linux.net.hard_block
+    version: 1
+    title: "Turn off the hardware switch for Wi-Fi"
+    kind: manual
+    os: [ubuntu, debian, linux_other]
+    shell: gui
+    category: wifi
+    risk: safe_change
+    needs_admin: false
+    manual_steps:
+      - "Press the key with an antenna or airplane icon (often Fn plus one of F2–F12)."
+      - "Check the laptop's sides for a wireless switch."
+      - "Tell me if that changed anything."
+    when_to_use: "When Wi-Fi is hard blocked."
+    explanation: |
+      A hard block comes from hardware or firmware, so software can't lift it. The wireless
+      key or switch usually can.
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: linux.net.device_status
+      - default: ESCALATE
+    undo: "Press the key or flip the switch back."
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.linux.net.connect
+    version: 1
+    title: "Connect to your Wi-Fi network"
+    kind: manual
+    os: [ubuntu, debian, linux_other]
+    shell: gui
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - "Click the network icon in the top-right corner and open Wi-Fi."
+      - "Pick your network and enter its password. Type it there, never in this chat."
+      - "Tell me whether it connected."
+    when_to_use: "When Wi-Fi works but is disconnected."
+    explanation: |
+      The adapter is fine but not joined to a network. Connecting through Settings is the
+      simplest way and keeps your Wi-Fi password on your computer.
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: linux.net.ping_ip
+      - default: linux.net.nm_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.addr
+    version: 1
+    title: "Check your network addresses"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "ip -brief address"
+    when_to_use: "When connected but nothing loads, to see if the router gave you an address."
+    explanation: |
+      Lists each network adapter with its IP address. A normal home address looks like
+      192.168.x.x or 10.x.x.x. An address starting with 169.254 means the router never
+      answered.
+    expect:
+      - {
+          pattern: '^wl\S*\s+UP\s+(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))\.',
+          meaning: "Your Wi-Fi has a normal local address."
+        }
+      - {
+          pattern: '169\.254\.',
+          meaning: "The router didn't give you an address."
+        }
+    next:
+      - when: { output_matches: '169\.254\.' }
+        goto: manual.router_restart
+      - default: linux.net.route
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.route
+    version: 1
+    title: "Check the route to the internet"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "ip route"
+    when_to_use: "When you have an address but can't reach the internet."
+    explanation: |
+      Shows where your computer sends traffic. A line starting with "default via" is the
+      route to the internet through your router. Without it, nothing outside your home
+      network loads.
+    expect:
+      - { pattern: "^default via", meaning: "There's a route to the internet." }
+    next:
+      - when: { output_matches: "^default via" }
+        goto: linux.net.ping_ip
+      - default: linux.net.nm_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.ping_ip
+    version: 1
+    title: "Test the internet connection by address"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "ping -c 4 1.1.1.1"
+    when_to_use: 'To tell apart "no internet" from "names don''t resolve".'
+    explanation: |
+      Sends four small test messages to a well-known public server by its number, skipping
+      name lookup. If these get answers, your internet works and the problem is likely DNS
+      (turning names into addresses).
+    expect:
+      - { pattern: " 0% packet loss", meaning: "The internet is reachable." }
+      - {
+          pattern: "100% packet loss|Network is unreachable",
+          meaning: "The internet isn't reachable at all."
+        }
+    next:
+      - when: { output_matches: " 0% packet loss" }
+        goto: linux.net.dns_test
+      - when: { output_matches: "100% packet loss|Network is unreachable" }
+        goto: linux.net.addr
+      - default: linux.net.dns_test
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.dns_test
+    version: 1
+    title: "Test that website names resolve (DNS)"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "getent hosts example.com"
+    when_to_use: "When the internet works by address but websites don't load."
+    explanation: |
+      Asks your system to turn a website name into an address, which is what DNS does. If
+      nothing prints, name lookup is broken, which makes it look like the internet is down.
+    expect:
+      - { pattern: '\S+\s+example\.com', meaning: "Name lookup works." }
+      - { pattern: '^\s*$', meaning: "Name lookup is failing." }
+    next:
+      - when: { output_empty: true }
+        goto: linux.net.flush_dns
+      - default: manual.linux.net.try_browse
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.dns_status
+    version: 1
+    title: "See which DNS servers you're using"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "resolvectl status"
+    when_to_use: "When DNS fails, to see which DNS servers are configured."
+    explanation: |
+      Shows the DNS servers each network adapter uses. Usually it's your router's address.
+      If none are listed for Wi-Fi, name lookup can't work.
+    expect:
+      - { pattern: "DNS Servers?:", meaning: "DNS servers are configured." }
+    next:
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.flush_dns
+    version: 1
+    title: "Clear the DNS cache"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: safe_change
+    needs_admin: true
+    command: "sudo resolvectl flush-caches"
+    when_to_use: "When name lookup fails or returns stale results."
+    explanation: |
+      Clears the list of recently looked-up website addresses that your computer keeps. A
+      stale or broken entry can stop sites loading. The list rebuilds itself automatically.
+    expect:
+      - { pattern: '^\s*$', meaning: "The cache was cleared." }
+    next:
+      - default: linux.net.dns_test_after_flush
+    undo: "n/a — the cache refills automatically"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.dns_test_after_flush
+    version: 1
+    title: "Test name lookup again"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "getent hosts example.com"
+    when_to_use: "After clearing the DNS cache, to see if it helped."
+    explanation: |
+      Same test as before. If a name and address print now, clearing the cache fixed it.
+    expect:
+      - { pattern: '\S+\s+example\.com', meaning: "Name lookup works now." }
+      - { pattern: '^\s*$', meaning: "Still failing." }
+    next:
+      - when: { output_empty: true }
+        goto: linux.net.dns_status
+      - default: manual.linux.net.try_browse
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.net.nm_restart
+    version: 1
+    title: "Restart NetworkManager"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: wifi
+    risk: restart
+    needs_admin: true
+    command: "sudo systemctl restart NetworkManager"
+    when_to_use: "When the adapter is fine but connections fail or hang."
+    explanation: |
+      Restarts the program that manages your network connections. Your connection drops for
+      a few seconds and should come back by itself.
+    expect:
+      - { pattern: '^\s*$', meaning: "It restarted." }
+    next:
+      - default: linux.net.device_status
+    undo: "n/a — restarts the service; Wi-Fi reconnects on its own"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.linux.net.try_browse
+    version: 1
+    title: "Try loading a website"
+    kind: manual
+    os: [ubuntu, debian, linux_other]
+    shell: gui
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - "Open a new browser tab and load a site you use often."
+      - "Tell me whether it loads."
+    when_to_use: "After network tests pass, to confirm the original problem is fixed."
+    explanation: "This checks the thing you actually care about, not just a test command."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: RESOLVED
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  # ─────────────────────────────── Linux · CLI tools / PATH ───────────────────────────────
+
+  - id: linux.dev.which
+    version: 1
+    title: "Find where a command-line tool is installed"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: "command -v {{tool}}"
+    params:
+      tool:
+        {
+          type: enum,
+          values: [claude, node, npm, npx, python3, pip, git, docker, code],
+          description: 'The tool that says "command not found"'
+        }
+    when_to_use: 'First check when a tool says "command not found".'
+    explanation: |
+      Asks your shell where it finds this tool. If it prints a path, the shell can find it.
+      If it prints nothing, the tool is either not installed or installed in a folder your
+      shell doesn't search (your PATH).
+    expect:
+      - {
+          pattern: '^/|^\$HOME/',
+          meaning: "The shell finds the tool at this path."
+        }
+      - { pattern: '^\s*$', meaning: "The shell can't find the tool." }
+    next:
+      - when: { output_empty: true }
+        goto: common.dev.npm_prefix
+      - default: manual.dev.try_again
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.dev.path
+    version: 1
+    title: "List the folders your shell searches (PATH)"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: "echo \"$PATH\" | tr ':' '\\n'"
+    when_to_use: "To check whether a tool's install folder is on PATH."
+    explanation: |
+      Your shell looks for commands only in the folders listed in PATH. This prints them one
+      per line so we can see whether the folder your tool was installed into is missing.
+    expect:
+      - {
+          pattern: '\.npm-global/bin|\.local/bin',
+          meaning: "A user-level tools folder is on your PATH."
+        }
+    next:
+      - default: linux.dev.add_npm_bin_to_path
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: linux.dev.add_npm_bin_to_path
+    version: 1
+    title: "Add npm's global tools folder to PATH"
+    kind: command
+    os: [ubuntu, debian, linux_other]
+    shell: bash
+    category: dev_cli
+    risk: safe_change
+    needs_admin: false
+    command: 'echo ''export PATH="{{prefix_path}}/bin:$PATH"'' >> {{rc_file}}'
+    params:
+      prefix_path:
+        {
+          type: regex,
+          pattern: '^\$HOME(/[A-Za-z0-9._-]+)+$',
+          description: "npm prefix from the previous step, e.g. $HOME/.npm-global"
+        }
+      rc_file:
+        {
+          type: enum,
+          values: ["~/.bashrc", "~/.zshrc"],
+          description: "Your shell's startup file (bash or zsh)"
+        }
+    when_to_use: "When npm's prefix is under $HOME and its bin folder is missing from PATH."
+    explanation: |
+      Adds one line to your shell's startup file so every new terminal also searches npm's
+      global tools folder. It doesn't install or delete anything. Run it once only; running
+      it twice adds a duplicate line (harmless but untidy). Open a new terminal afterwards.
+    expect:
+      - {
+          pattern: '^\s*$',
+          meaning: "The line was added. Open a new terminal window next."
+        }
+    next:
+      - default: linux.dev.which
+    undo: "Open the file (e.g. ~/.bashrc) in a text editor and delete the last line that starts with export PATH="
+    sources:
+      - {
+          title: "npm Docs — Resolving EACCES permissions errors",
+          url: "https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally",
+          license: "link-only"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  # ─────────────────────────────── Common (bash + PowerShell) ───────────────────────────────
+
+  - id: common.dev.node_version
+    version: 1
+    title: "Check your Node.js version"
+    kind: command
+    os: [ubuntu, debian, linux_other, windows11, windows10]
+    shell: any
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: "node --version"
+    when_to_use: "When an npm-installed tool fails, to confirm Node is installed and recent."
+    explanation: |
+      Prints the installed Node.js version. Many command-line tools need a recent Node.
+      If Node itself isn't found, that's the first thing to fix.
+    expect:
+      - {
+          pattern: '^v\d+\.',
+          meaning: "Node.js is installed; this is its version."
+        }
+      - {
+          pattern: "not found|not recognized",
+          meaning: "Node.js isn't installed or isn't on PATH."
+        }
+    next:
+      - when: { output_matches: "not found|not recognized" }
+        goto: ESCALATE
+      - default: common.dev.npm_prefix
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: common.dev.npm_prefix
+    version: 1
+    title: "Find where npm installs global tools"
+    kind: command
+    os: [ubuntu, debian, linux_other, windows11, windows10]
+    shell: any
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: "npm config get prefix"
+    when_to_use: "When a globally installed npm tool isn't found."
+    explanation: |
+      Prints the folder npm installs "global" tools into. On Linux the tools go in its bin
+      subfolder; on Windows directly in it. If that folder isn't on PATH, your terminal can't
+      find the tools.
+    expect:
+      - {
+          pattern: '^\$HOME/',
+          meaning: "npm installs tools under your home folder."
+        }
+      - { pattern: "^/usr", meaning: "npm installs tools in a system folder." }
+      - {
+          pattern: '%APPDATA%|%USERPROFILE%|AppData\\Roaming\\npm',
+          meaning: "npm installs tools in your Windows user folder."
+        }
+      - {
+          pattern: "not found|not recognized",
+          meaning: "npm isn't installed or isn't on PATH."
+        }
+    next:
+      - when: { output_matches: "not found|not recognized" }
+        goto: common.dev.node_version
+      - when: { output_matches: '^\$HOME/' }
+        goto: linux.dev.path
+      - when: { output_matches: "%APPDATA%|%USERPROFILE%|AppData" }
+        goto: win.dev.path
+      - default: ESCALATE
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.dev.try_again
+    version: 1
+    title: "Try the tool again in a new terminal"
+    kind: manual
+    os: [ubuntu, debian, linux_other, windows11, windows10]
+    shell: gui
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - "Close all terminal windows and open a new one."
+      - "Run the tool the way you did before."
+      - "Tell me whether it works now."
+    when_to_use: "After a PATH change, or when the tool is found but still failing."
+    explanation: "Terminals read PATH when they start, so changes only show up in new windows."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: RESOLVED
+      - default: ESCALATE
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.reboot
+    version: 1
+    title: "Restart your computer"
+    kind: manual
+    os: [ubuntu, debian, linux_other, windows11, windows10]
+    shell: gui
+    category: system
+    risk: disruptive
+    needs_admin: false
+    manual_steps:
+      - "Save your work and close your apps."
+      - "Restart the computer (not Shut down; Restart)."
+      - "Come back to this page afterwards. Your session will still be here."
+    when_to_use: "When a driver is stuck or an update needs a restart."
+    explanation: "A restart reloads every driver and service from scratch. It fixes stuck hardware more reliably than any command."
+    expect: []
+    next:
+      - default: FLOW_ENTRY
+    undo: "n/a"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.router_restart
+    version: 1
+    title: "Restart your router"
+    kind: manual
+    os: [ubuntu, debian, linux_other, windows11, windows10]
+    shell: gui
+    category: wifi
+    risk: disruptive
+    needs_admin: false
+    manual_steps:
+      - "Unplug the router's power cable (and the modem's, if separate)."
+      - "Wait 30 seconds, then plug them back in."
+      - "Wait about 2 minutes for the lights to settle, then reconnect to Wi-Fi."
+      - "Tell me whether websites load now."
+    when_to_use: "When the computer looks fine but the router isn't handing out addresses or DNS."
+    explanation: "Routers get stuck like any computer. A restart clears their memory and usually fixes address and DNS problems for every device at home."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: RESOLVED
+      - default: ESCALATE
+    undo: "n/a"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  # ─────────────────────────────── Windows · system ───────────────────────────────
+
+  - id: win.sys.os_info
+    version: 1
+    title: "Show your Windows version"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: system
+    risk: read_only
+    needs_admin: false
+    command: "Get-ComputerInfo -Property OsName, OsVersion, OsBuildNumber"
+    when_to_use: "When the Windows version or build is unknown."
+    explanation: |
+      Shows your Windows edition, version and build number. It can take a few seconds.
+      Some fixes depend on the build. It only reads information.
+    expect:
+      - { pattern: "Windows 11", meaning: "You're on Windows 11." }
+      - { pattern: "Windows 10", meaning: "You're on Windows 10." }
+    next:
+      - default: FLOW_ENTRY
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  # ─────────────────────────────── Windows · Bluetooth ───────────────────────────────
+
+  - id: win.bt.devices
+    version: 1
+    title: "List Bluetooth devices and their status"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: "Get-PnpDevice -Class Bluetooth | Format-Table Status, FriendlyName -AutoSize"
+    when_to_use: "First check for any Bluetooth problem on Windows."
+    explanation: |
+      Lists every Bluetooth item Windows knows about and its status. "OK" means working,
+      "Error" means a driver problem, and "Unknown" means the device isn't present right now.
+      It only reads information.
+    expect:
+      - {
+          pattern: '^Error\s',
+          meaning: "A Bluetooth device has a driver problem."
+        }
+      - { pattern: '^OK\s', meaning: "These items are working." }
+      - {
+          pattern: '^Unknown\s',
+          meaning: "These items aren't present right now (often old or disconnected devices)."
+        }
+      - {
+          pattern: "No matching Win32_PnPEntity objects",
+          meaning: "Windows can't see any Bluetooth hardware."
+        }
+    next:
+      - when: { output_matches: "No matching Win32_PnPEntity objects" }
+        goto: manual.win.bt.quick_settings
+      - when: { output_matches: '^Error\s' }
+        goto: win.bt.service_status
+      - default: manual.win.bt.quick_settings
+    undo: null
+    sources:
+      - {
+          title: "Microsoft Learn — Get-PnpDevice",
+          url: "https://learn.microsoft.com/en-us/powershell/module/pnpdevice/get-pnpdevice",
+          license: "CC-BY-4.0"
+        }
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.bt.service_status
+    version: 1
+    title: "Check the Bluetooth Support Service"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    command: "Get-Service bthserv | Format-List Name, Status, StartType"
+    when_to_use: "When Bluetooth devices show errors or won't connect."
+    explanation: |
+      Windows needs the "Bluetooth Support Service" (bthserv) for Bluetooth to work. This
+      shows whether it's running and how it starts. It only reads status.
+    expect:
+      - { pattern: 'Status\s*:\s*Running', meaning: "The service is running." }
+      - { pattern: 'Status\s*:\s*Stopped', meaning: "The service is stopped." }
+      - {
+          pattern: 'StartType\s*:\s*Disabled',
+          meaning: "The service is disabled and can't start."
+        }
+    next:
+      - when: { output_matches: 'StartType\s*:\s*Disabled' }
+        goto: win.bt.service_set_manual
+      - when: { output_matches: 'Status\s*:\s*Stopped' }
+        goto: win.bt.service_start
+      - default: win.bt.service_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.bt.service_set_manual
+    version: 1
+    title: "Allow the Bluetooth service to start"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: "Set-Service -Name bthserv -StartupType Manual"
+    when_to_use: "When bthserv is Disabled."
+    explanation: |
+      Changes the Bluetooth Support Service from "Disabled" back to Windows' default
+      ("Manual"), so it can start when needed. Run it in a terminal opened as administrator.
+    expect:
+      - { pattern: '^\s*$', meaning: "It worked." }
+      - {
+          pattern: "Access is denied|PermissionDenied",
+          meaning: "The terminal isn't running as administrator."
+        }
+    next:
+      - default: win.bt.service_start
+    undo: "Set-Service -Name bthserv -StartupType Disabled"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.bt.service_start
+    version: 1
+    title: "Start the Bluetooth service"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: bluetooth
+    risk: safe_change
+    needs_admin: true
+    command: "Start-Service bthserv"
+    when_to_use: "When bthserv is stopped."
+    explanation: |
+      Starts the Bluetooth Support Service now. Run it in a terminal opened as administrator.
+    expect:
+      - { pattern: '^\s*$', meaning: "The service started." }
+      - {
+          pattern: "cannot be started|Cannot open",
+          meaning: "Windows couldn't start it, often a permissions or driver problem."
+        }
+    next:
+      - when: { output_matches: "cannot be started|Cannot open" }
+        goto: manual.win.bt.optional_updates
+      - default: manual.win.bt.try_connect
+    undo: "Stop-Service bthserv"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.bt.service_restart
+    version: 1
+    title: "Restart the Bluetooth service"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: bluetooth
+    risk: restart
+    needs_admin: true
+    command: "Restart-Service bthserv"
+    when_to_use: "When the service runs but Bluetooth is stuck or devices error."
+    explanation: |
+      Stops and starts the Bluetooth Support Service. Connected Bluetooth devices drop for a
+      few seconds. Run it in a terminal opened as administrator.
+    expect:
+      - {
+          pattern: '^\s*$|WARNING: Waiting for service',
+          meaning: "It restarted."
+        }
+    next:
+      - default: manual.win.bt.try_connect
+    undo: "n/a — restarts the service"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.win.bt.quick_settings
+    version: 1
+    title: "Check Airplane mode and the Bluetooth toggle"
+    kind: manual
+    os: [windows11, windows10]
+    shell: gui
+    category: bluetooth
+    risk: safe_change
+    needs_admin: false
+    deep_link: "ms-settings:bluetooth"
+    manual_steps:
+      - "Press Windows + A to open Quick Settings."
+      - "Make sure Airplane mode is off and Bluetooth is on."
+      - "If there's no Bluetooth button at all, tell me. That usually means a driver problem."
+    when_to_use: "When Windows sees no Bluetooth hardware, or as a first quick check."
+    explanation: "Airplane mode turns off every radio, including Bluetooth. It's the most common cause and takes five seconds to check."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: manual.win.bt.try_connect
+      - default: manual.win.bt.optional_updates
+    undo: "Toggle the same switches back."
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.win.bt.optional_updates
+    version: 1
+    title: "Look for a Bluetooth driver update"
+    kind: manual
+    os: [windows11, windows10]
+    shell: gui
+    category: bluetooth
+    risk: safe_change
+    needs_admin: false
+    deep_link: "ms-settings:windowsupdate-optionalupdates"
+    manual_steps:
+      - "Open Settings → Windows Update → Advanced options → Optional updates."
+      - 'Open "Driver updates". If you see a Bluetooth or wireless driver, select it and install.'
+      - "Restart the computer if Windows asks, then come back here."
+    when_to_use: "When a Bluetooth device shows Error or the service won't start."
+    explanation: "Windows Update offers tested drivers from your laptop's maker. A newer driver often fixes a Bluetooth adapter that shows an error."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: win.bt.devices
+      - default: ESCALATE
+    undo: "Settings → Windows Update → Update history → Uninstall updates (for drivers: Device Manager → Roll back driver)."
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.win.bt.try_connect
+    version: 1
+    title: "Try connecting your Bluetooth device now"
+    kind: manual
+    os: [windows11, windows10]
+    shell: gui
+    category: bluetooth
+    risk: read_only
+    needs_admin: false
+    deep_link: "ms-settings:bluetooth"
+    manual_steps:
+      - "Open Settings → Bluetooth & devices."
+      - 'Put your device in pairing mode, then click "Add device" and pick it.'
+      - 'If it was paired before and won''t connect, open it and choose "Remove device", then add it again.'
+    when_to_use: "After Bluetooth is back on, to check the original problem is fixed."
+    explanation: "This checks what you actually care about. Removing and re-adding clears old pairing data that often breaks after updates."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: RESOLVED
+      - default: manual.win.bt.optional_updates
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  # ─────────────────────────────── Windows · Wi-Fi / network ───────────────────────────────
+
+  - id: win.net.wlan_interfaces
+    version: 1
+    title: "Check your Wi-Fi connection details"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "netsh wlan show interfaces"
+    when_to_use: "First check for Wi-Fi problems on Windows."
+    explanation: |
+      Shows your Wi-Fi adapter, whether it's connected, to which network, and the signal
+      strength. It only reads information. On newer Windows 11 builds it may ask for
+      Location permission, because Wi-Fi details can reveal where you are.
+    expect:
+      - { pattern: 'State\s*:\s*connected', meaning: "Wi-Fi is connected." }
+      - {
+          pattern: 'State\s*:\s*disconnected',
+          meaning: "Wi-Fi isn't connected to a network."
+        }
+      - {
+          pattern: "no wireless interface",
+          meaning: "Windows can't see a Wi-Fi adapter."
+        }
+      - {
+          pattern: "location",
+          meaning: "Windows wants Location permission to show Wi-Fi details."
+        }
+    next:
+      - when: { output_matches: "no wireless interface" }
+        goto: win.net.adapters
+      - when: { output_matches: 'State\s*:\s*disconnected' }
+        goto: manual.win.net.connect
+      - when: { output_matches: 'State\s*:\s*connected' }
+        goto: win.net.ping_ip
+      - default: win.net.adapters
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.net.adapters
+    version: 1
+    title: "List network adapters"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize"
+    when_to_use: "When Wi-Fi seems missing or disabled."
+    explanation: |
+      Lists your network adapters (Wi-Fi, Ethernet) and whether each is Up, Disconnected or
+      Disabled. It only reads information.
+    expect:
+      - {
+          pattern: 'Wi-?Fi\S*\s+Disabled',
+          meaning: "The Wi-Fi adapter is turned off in Windows."
+        }
+      - {
+          pattern: 'Wi-?Fi\S*\s+Up',
+          meaning: "The Wi-Fi adapter is on and connected."
+        }
+    next:
+      - when: { output_matches: 'Wi-?Fi\S*\s+Disabled' }
+        goto: win.net.enable_adapter
+      - default: manual.win.bt.quick_settings
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.net.enable_adapter
+    version: 1
+    title: "Turn the Wi-Fi adapter back on"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: wifi
+    risk: safe_change
+    needs_admin: true
+    command: 'Enable-NetAdapter -Name "{{adapter}}"'
+    params:
+      adapter:
+        {
+          type: regex,
+          pattern: "^[A-Za-z0-9 ._-]{1,40}$",
+          description: "Adapter name from the list, e.g. Wi-Fi"
+        }
+    when_to_use: "When the Wi-Fi adapter shows Disabled."
+    explanation: |
+      Re-enables the Wi-Fi adapter Windows had switched off. Run it in a terminal opened as
+      administrator.
+    expect:
+      - { pattern: '^\s*$', meaning: "The adapter is enabled." }
+    next:
+      - default: win.net.wlan_interfaces
+    undo: 'Disable-NetAdapter -Name "{{adapter}}"'
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.win.net.connect
+    version: 1
+    title: "Connect to your Wi-Fi network"
+    kind: manual
+    os: [windows11, windows10]
+    shell: gui
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    deep_link: "ms-settings:network-wifi"
+    manual_steps:
+      - "Click the network icon on the taskbar and open the Wi-Fi list (the arrow next to Wi-Fi)."
+      - "Pick your network and enter its password. Type it there, never in this chat."
+      - "Tell me whether it connected."
+    when_to_use: "When Wi-Fi is on but disconnected."
+    explanation: "Your adapter works but isn't joined to a network. Joining through Windows keeps the password on your PC."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: win.net.ping_ip
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.net.ping_ip
+    version: 1
+    title: "Test the internet connection by address"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "ping -n 4 1.1.1.1"
+    when_to_use: 'To tell apart "no internet" from "names don''t resolve".'
+    explanation: |
+      Sends four small test messages to a well-known public server by its number, skipping
+      name lookup. Answers mean your internet works and the problem is probably DNS.
+    expect:
+      - {
+          pattern: "Received = 4|Received = 3",
+          meaning: "The internet is reachable."
+        }
+      - {
+          pattern: "100% loss|General failure|unreachable|transmit failed",
+          meaning: "The internet isn't reachable."
+        }
+    next:
+      - when:
+          {
+            output_matches: "100% loss|General failure|unreachable|transmit failed"
+          }
+        goto: manual.router_restart
+      - default: win.net.dns_test
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.net.dns_test
+    version: 1
+    title: "Test that website names resolve (DNS)"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "Resolve-DnsName example.com -Type A"
+    when_to_use: "When the internet works by address but websites don't load."
+    explanation: |
+      Asks Windows to turn a website name into an address (DNS). If this fails while the
+      address test worked, DNS is the problem.
+    expect:
+      - { pattern: 'example\.com\s+A\s+\d+', meaning: "Name lookup works." }
+      - {
+          pattern: "DNS name does not exist|timeout period expired|DNS server failure|not found",
+          meaning: "Name lookup is failing."
+        }
+    next:
+      - when:
+          {
+            output_matches: "DNS name does not exist|timeout period expired|DNS server failure|not found"
+          }
+        goto: win.net.flush_dns
+      - default: manual.win.net.try_browse
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.net.flush_dns
+    version: 1
+    title: "Clear the DNS cache"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: wifi
+    risk: safe_change
+    needs_admin: false
+    command: "ipconfig /flushdns"
+    when_to_use: "When name lookup fails or returns stale results."
+    explanation: |
+      Clears Windows' list of recently looked-up website addresses. A stale entry can stop
+      sites loading. The list rebuilds itself automatically.
+    expect:
+      - { pattern: "Successfully flushed", meaning: "The cache was cleared." }
+      - {
+          pattern: "requires elevation",
+          meaning: "Run it in a terminal opened as administrator."
+        }
+    next:
+      - default: win.net.dns_test_after_flush
+    undo: "n/a — the cache refills automatically"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.net.dns_test_after_flush
+    version: 1
+    title: "Test name lookup again"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    command: "Resolve-DnsName example.com -Type A"
+    when_to_use: "After clearing the DNS cache."
+    explanation: "Same test as before. If an address shows now, clearing the cache fixed it."
+    expect:
+      - { pattern: 'example\.com\s+A\s+\d+', meaning: "Name lookup works now." }
+    next:
+      - when: { output_matches: 'example\.com\s+A\s+\d+' }
+        goto: manual.win.net.try_browse
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.net.restart_adapter
+    version: 1
+    title: "Restart the Wi-Fi adapter"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: wifi
+    risk: disruptive
+    needs_admin: true
+    command: 'Restart-NetAdapter -Name "{{adapter}}"'
+    params:
+      adapter:
+        {
+          type: regex,
+          pattern: "^[A-Za-z0-9 ._-]{1,40}$",
+          description: "Adapter name, e.g. Wi-Fi"
+        }
+    when_to_use: "When the adapter is up but connections keep failing."
+    explanation: |
+      Turns the Wi-Fi adapter off and on. Your connection drops for a few seconds. Run it in
+      a terminal opened as administrator.
+    expect:
+      - { pattern: '^\s*$', meaning: "The adapter restarted." }
+    next:
+      - default: win.net.wlan_interfaces
+    undo: "n/a — the adapter comes back on by itself"
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.win.net.try_browse
+    version: 1
+    title: "Try loading a website"
+    kind: manual
+    os: [windows11, windows10]
+    shell: gui
+    category: wifi
+    risk: read_only
+    needs_admin: false
+    manual_steps:
+      - "Open a new browser tab and load a site you use often."
+      - "Tell me whether it loads."
+    when_to_use: "After network tests pass, to confirm the original problem is fixed."
+    explanation: "This checks the thing you care about, not just a test."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: RESOLVED
+      - default: manual.router_restart
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  # ─────────────────────────────── Windows · CLI tools / PATH ───────────────────────────────
+
+  - id: win.dev.where
+    version: 1
+    title: "Find where a command-line tool is installed"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: "where.exe {{tool}}"
+    params:
+      tool:
+        {
+          type: enum,
+          values: [claude, node, npm, npx, python, pip, git, docker, code],
+          description: 'The tool that says "not recognized"'
+        }
+    when_to_use: 'First check when a tool is "not recognized as a command".'
+    explanation: |
+      Asks Windows where it finds this tool. We use where.exe because in PowerShell plain
+      "where" means something else. A path means Windows finds it; "Could not find" means
+      it's not installed or not on PATH.
+    expect:
+      - {
+          pattern: "Could not find files",
+          meaning: "Windows can't find the tool on PATH."
+        }
+      - {
+          pattern: '^[A-Za-z]:\\|^%',
+          meaning: "Windows finds the tool at this path."
+        }
+    next:
+      - when: { output_matches: "Could not find files" }
+        goto: common.dev.npm_prefix
+      - default: manual.dev.try_again
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: win.dev.path
+    version: 1
+    title: "List the folders Windows searches (PATH)"
+    kind: command
+    os: [windows11, windows10]
+    shell: powershell
+    category: dev_cli
+    risk: read_only
+    needs_admin: false
+    command: "$env:Path -split ';'"
+    when_to_use: "To check whether npm's folder is on PATH."
+    explanation: |
+      Windows looks for commands only in the folders listed in PATH. This prints them one per
+      line so we can see whether npm's folder is missing.
+    expect:
+      - {
+          pattern: 'AppData\\Roaming\\npm|%APPDATA%\\npm',
+          meaning: "npm's folder is on your PATH."
+        }
+    next:
+      - when: { output_matches: 'AppData\\Roaming\\npm|%APPDATA%\\npm' }
+        goto: manual.dev.try_again
+      - default: manual.win.dev.edit_user_path
+    undo: null
+    sources: []
+    reviewed_by: null
+    tested_on: []
+
+  - id: manual.win.dev.edit_user_path
+    version: 1
+    title: "Add npm's folder to your PATH (Windows settings)"
+    kind: manual
+    os: [windows11, windows10]
+    shell: gui
+    category: dev_cli
+    risk: safe_change
+    needs_admin: false
+    manual_steps:
+      - 'Press Start, type "environment variables" and open "Edit environment variables for your account".'
+      - "In the top list, select Path and click Edit."
+      - "Click New and paste the folder from the npm step (usually %APPDATA%\\npm)."
+      - "Click OK on every window, then close and reopen your terminal."
+    when_to_use: "When npm's Windows folder isn't on PATH."
+    explanation: "This adds npm's folder to the list Windows searches for commands, only for your account. Nothing is installed or deleted."
+    expect: []
+    next:
+      - when: { status: worked }
+        goto: manual.dev.try_again
+      - default: ESCALATE
+    undo: "Open the same window, select that Path entry and click Delete."
+    sources: []
+    reviewed_by: null
+    tested_on: []

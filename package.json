@@ -1,12 +1,13 @@
 {
-  "name": "agent-starter",
-  "version": "1.0.0",
+  "name": "stepfix",
+  "version": "0.1.0",
   "private": true,
-  "description": "Starter template for building AI chat agents on Cloudflare",
+  "description": "AI support agent that guides users through fixing their own computer problems",
   "keywords": [
     "agents",
     "ai",
-    "cloudflare"
+    "cloudflare",
+    "support"
   ],
   "license": "MIT",
   "type": "module",
@@ -17,24 +18,37 @@
     "types": "wrangler types env.d.ts",
     "format": "oxfmt --write .",
     "lint": "oxlint src/",
-    "check": "oxfmt --check . && oxlint src/ && tsc"
+    "check": "oxfmt --check . && oxlint src/ && tsc",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "lint:library": "tsx scripts/lint-library.ts",
+    "compile:library": "tsx scripts/compile-library.ts",
+    "eval": "tsx eval/run-eval.ts"
   },
   "dependencies": {
-    "@cloudflare/ai-chat": "^0.9.3",
+    "@ai-sdk/google": "^4.0.0",
+    "@ai-sdk/groq": "^4.0.0",
+    "@ai-sdk/openai-compatible": "^3.0.0",
+    "@ai-sdk/react": "^4.0.0",
+    "@cloudflare/ai-chat": "^0.11.0",
     "@cloudflare/kumo": "^2.6.0",
     "@phosphor-icons/react": "^2.1.10",
     "@streamdown/code": "^1.1.1",
-    "agents": "^0.17.4",
-    "ai": "^6.0.197",
+    "agents": "^0.22.0",
+    "ai": "^7.0.0",
+    "nanoid": "^5.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "streamdown": "^2.5.0",
-    "workers-ai-provider": "^3.2.1",
+    "workers-ai-provider": "^4.0.0",
+    "yaml": "^2.5.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^8.0.2",
     "@cloudflare/vite-plugin": "^1.46.0",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@playwright/test": "^1.50.0",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.1",
     "@types/node": "^26.5.1",
@@ -44,8 +58,10 @@
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0",
     "tailwindcss": "^4.3.1",
+    "tsx": "^4.19.0",
     "typescript": "^6.0.3",
     "vite": "^8.1.0",
+    "vitest": "^4.1.0",
     "wrangler": "^4.131.0"
   },
   "allowScripts": {
