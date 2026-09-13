@@ -11,6 +11,7 @@ import { getScript, renderCommand } from "../library/index";
 import { buildEscalationReport } from "../report/escalation";
 import { transition } from "./phases";
 import { wrapUntrusted, truncateForUntrusted } from "../guardrails/untrusted";
+import { scrub } from "../guardrails/scrub";
 
 export interface ToolContext {
   state: {
@@ -46,6 +47,7 @@ export function buildTools(ctx: ToolContext) {
         device: z.string().max(80).optional(),
         category: z.enum(["bluetooth", "wifi", "dev_cli", "other"]).optional(),
         symptom: z.string().max(300).optional(),
+        originalTask: z.string().max(300).optional(),
         errorText: z.string().max(500).optional(),
         whenStarted: z.string().max(120).optional(),
         whatChanged: z.string().max(200).optional(),
@@ -64,6 +66,7 @@ export function buildTools(ctx: ToolContext) {
           "device",
           "category",
           "symptom",
+          "originalTask",
           "errorText",
           "whenStarted",
           "whatChanged",
@@ -102,9 +105,10 @@ export function buildTools(ctx: ToolContext) {
           return { ok: false, missing };
         }
         ctx.state.caseFile.summary = input.summary;
+        ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "technician");
         ctx.setState(ctx.state);
-        return { ok: true };
+        return { ok: true, caseVersion: ctx.state.caseFile.caseVersion };
       }
     }),
 
@@ -238,6 +242,7 @@ export function buildTools(ctx: ToolContext) {
           likelyCause: input.likelyCause,
           phase: "escalated"
         });
+        ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "escalated");
         ctx.state.reportId = nanoid(12);
         ctx.setState(ctx.state);
@@ -247,12 +252,28 @@ export function buildTools(ctx: ToolContext) {
 
     mark_resolved: tool({
       description:
-        "Mark the problem as resolved after a verification step passes.",
+        "Mark the problem as resolved. Requires a fresh verified postcondition AND explicit original-task confirmation. An unmet postcondition means continue diagnosis, not escalate.",
       inputSchema: z.object({
         rootCause: z.string().max(200),
+        postconditionMet: z.boolean(),
+        originalTaskMet: z.boolean(),
         fixStepId: z.string().optional()
       }),
       execute: async (input): Promise<ToolResult> => {
+        if (!input.postconditionMet) {
+          return {
+            ok: false,
+            error:
+              "Postcondition not met. Continue safe bounded diagnosis — do not escalate after every step."
+          };
+        }
+        if (!input.originalTaskMet) {
+          return {
+            ok: false,
+            error:
+              "Original task not confirmed. The postcondition may be met but the user's actual goal is not verified."
+          };
+        }
         const lastStep = ctx.state.steps[ctx.state.steps.length - 1];
         if (
           !lastStep ||
@@ -263,6 +284,7 @@ export function buildTools(ctx: ToolContext) {
             error: "Last step must be ran or worked before resolving."
           };
         }
+        ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "resolved");
         ctx.setState(ctx.state);
         return { ok: true, rootCause: input.rootCause };
@@ -276,9 +298,10 @@ export function buildTools(ctx: ToolContext) {
         reason: z.string().max(200)
       }),
       execute: async (_input): Promise<ToolResult> => {
+        ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "support");
         ctx.setState(ctx.state);
-        return { ok: true };
+        return { ok: true, caseVersion: ctx.state.caseFile.caseVersion };
       }
     })
   };
@@ -295,7 +318,9 @@ export function handleStepResult(
     return { updated: false };
   }
 
-  const scrubbedOutput = output ? truncateForUntrusted(output) : undefined;
+  const scrubbedOutput = output
+    ? truncateForUntrusted(scrub(output).text)
+    : undefined;
   const matchedPatterns: string[] = [];
 
   if (scrubbedOutput) {

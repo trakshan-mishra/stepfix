@@ -82,6 +82,8 @@ export async function verifyToken(
 
   if (now > expiry) return { ok: false, reason: "expired" };
 
+  if (isRevoked(sessionId)) return { ok: false, reason: "revoked" };
+
   let providedSig: Uint8Array;
   try {
     providedSig = base64urlDecode(sigB64);
@@ -95,4 +97,29 @@ export async function verifyToken(
   }
 
   return { ok: true, sessionId };
+}
+
+const revokedTokens = new Map<string, number>();
+
+export function revokeToken(sessionId: string, expiry: number): void {
+  revokedTokens.set(sessionId, expiry);
+}
+
+export function isRevoked(sessionId: string): boolean {
+  return revokedTokens.has(sessionId);
+}
+
+export function purgeExpiredRevocations(now: number = Date.now()): number {
+  let purged = 0;
+  for (const [sid, expiry] of revokedTokens) {
+    if (now > expiry) {
+      revokedTokens.delete(sid);
+      purged++;
+    }
+  }
+  return purged;
+}
+
+export function getRevokedCount(): number {
+  return revokedTokens.size;
 }

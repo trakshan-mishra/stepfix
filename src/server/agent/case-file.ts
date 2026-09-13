@@ -28,13 +28,15 @@ export const CaseFile = z.object({
   device: z.string().max(80).optional(),
   category: Category.optional(),
   symptom: z.string().max(300).optional(),
+  originalTask: z.string().max(300).optional(),
   errorText: z.string().max(500).optional(),
   whenStarted: z.string().max(120).optional(),
   whatChanged: z.string().max(200).optional(),
   userSkill: z.enum(["novice", "intermediate", "expert"]).optional(),
   canUseAdmin: z.boolean().optional(),
   facts: z.array(Fact).max(50).default([]),
-  summary: z.string().max(400).optional()
+  summary: z.string().max(400).optional(),
+  caseVersion: z.number().int().nonnegative().default(0)
 });
 export type CaseFile = z.infer<typeof CaseFile>;
 

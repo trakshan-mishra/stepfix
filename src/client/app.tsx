@@ -4,12 +4,16 @@ import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import type { MCPServersState } from "agents";
 import type { SupportSession } from "../server";
+import type { CaseFile, Step, Card } from "../server/agent/case-file";
+import { redactCommands } from "../server/guardrails/command-scanner";
+import ScriptCard from "./components/ScriptCard";
+import CasePanel from "./components/CasePanel";
+import HandoffBanner from "./components/HandoffBanner";
 import {
   Badge,
   Button,
   Empty,
   InputArea,
-  PoweredByCloudflare,
   Surface,
   Switch,
   Text
@@ -96,6 +100,11 @@ function ThemeToggle() {
 
 // ── Tool rendering ────────────────────────────────────────────────────
 
+function sanitizeAssistantText(text: string): string {
+  const redacted = redactCommands(text);
+  return redacted.replace(/```[\s\S]*?```/g, "[code redacted]");
+}
+
 function ToolIO({ label, value }: { label: string; value: unknown }) {
   if (value === undefined || value === null) return null;
   const text =
@@ -115,19 +124,45 @@ function ToolIO({ label, value }: { label: string; value: unknown }) {
 
 function ToolPartView({
   part,
-  addToolApprovalResponse
+  addToolApprovalResponse,
+  onStepResult
 }: {
   part: UIMessage["parts"][number];
   addToolApprovalResponse: (response: {
     id: string;
     approved: boolean;
   }) => void;
+  onStepResult?: (
+    stepId: string,
+    status: "ran" | "worked" | "failed" | "cant_run",
+    output?: string
+  ) => void;
 }) {
   if (!isToolUIPart(part)) return null;
   const toolName = getToolName(part);
 
   // Completed
   if (part.state === "output-available") {
+    if (toolName === "recommend_step" && onStepResult) {
+      const output = part.output as { ok?: boolean; card?: Card } | undefined;
+      if (output?.ok && output.card) {
+        return (
+          <div className="flex justify-start w-full">
+            <ScriptCard card={output.card} onResult={onStepResult} />
+          </div>
+        );
+      }
+    }
+
+    if (toolName === "handoff_to_technician") {
+      const output = part.output as { ok?: boolean } | undefined;
+      if (output?.ok) {
+        return (
+          <HandoffBanner summary="Handing off to Technician for guided repair." />
+        );
+      }
+    }
+
     return (
       <div className="flex justify-start">
         <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
@@ -280,6 +315,9 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
   const [mcpUrl, setMcpUrl] = useState("");
   const [isAddingServer, setIsAddingServer] = useState(false);
   const mcpPanelRef = useRef<HTMLDivElement>(null);
+  const [caseFile, setCaseFile] = useState<CaseFile>({ os: "unknown", facts: [], caseVersion: 0 });
+  const [caseSteps, setCaseSteps] = useState<Step[]>([]);
+  const [casePhase, setCasePhase] = useState<string>("support");
 
   const agent = useAgent<SupportSession>({
     agent: "SupportSession",
@@ -379,6 +417,56 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
   });
 
   const isStreaming = status === "streaming" || status === "submitted";
+
+  const handleStepResult = useCallback(
+    (
+      stepId: string,
+      stepStatus: "ran" | "worked" | "failed" | "cant_run",
+      output?: string
+    ) => {
+      sendMessage({
+        role: "user",
+        parts: [
+          {
+            type: "text",
+            text: `Step ${stepId}: ${stepStatus}${output ? ` — ${output.slice(0, 200)}` : ""}`
+          }
+        ],
+        metadata: { kind: "step_result", stepId, status: stepStatus, output }
+      } as never);
+      setCaseSteps((prev) =>
+        prev.map((s) =>
+          s.stepId === stepId
+            ? { ...s, status: stepStatus as Step["status"], output }
+            : s
+        )
+      );
+    },
+    [sendMessage]
+  );
+
+  useEffect(() => {
+    for (const msg of messages) {
+      if (msg.role !== "assistant") continue;
+      for (const part of msg.parts) {
+        if (!isToolUIPart(part) || part.state !== "output-available") continue;
+        const toolName = getToolName(part);
+        const out = part.output as Record<string, unknown> | undefined;
+        if (toolName === "update_case" && out?.caseFile) {
+          setCaseFile(out.caseFile as CaseFile);
+        }
+        if (toolName === "handoff_to_technician" && out?.ok) {
+          setCasePhase("technician");
+        }
+        if (toolName === "mark_resolved" && out?.ok) {
+          setCasePhase("resolved");
+        }
+        if (toolName === "escalate_to_human" && out?.ok) {
+          setCasePhase("escalated");
+        }
+      }
+    }
+  }, [messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -700,7 +788,8 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+        <div className="flex gap-4 max-w-5xl mx-auto px-5 py-6">
+        <div className="flex-1 space-y-5">
           {messages.length === 0 && (
             <Empty
               icon={<ChatCircleDotsIcon size={32} />}
@@ -756,6 +845,7 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                         key={key}
                         part={part}
                         addToolApprovalResponse={addToolApprovalResponse}
+                        onStepResult={handleStepResult}
                       />
                     );
                   }
@@ -833,7 +923,7 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                             controls={false}
                             isAnimating={isLastAssistant && isStreaming}
                           >
-                            {part.text}
+                            {sanitizeAssistantText(part.text)}
                           </Streamdown>
                         </div>
                       </div>
@@ -847,6 +937,21 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
           })}
 
           <div ref={messagesEndRef} />
+        </div>
+          <CasePanel
+            caseFile={caseFile}
+            steps={caseSteps}
+            phase={casePhase}
+            onDeleteSession={() => {
+              try {
+                localStorage.removeItem("stepfix:token");
+                localStorage.removeItem("stepfix:session");
+              } catch {
+                // ignore
+              }
+              window.location.href = "/";
+            }}
+          />
         </div>
       </div>
 
@@ -958,8 +1063,10 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
             )}
           </div>
         </form>
-        <div className="flex justify-center pb-3">
-          <PoweredByCloudflare href="https://developers.cloudflare.com/agents/" />
+        <div className="flex justify-center pb-2">
+          <span className="text-[10px] text-kumo-inactive">
+            free bounded beta · AI · last screen analyzed
+          </span>
         </div>
       </div>
     </div>

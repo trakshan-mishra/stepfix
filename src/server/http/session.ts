@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { signToken, verifyToken } from "./token";
+import { signToken, verifyToken, revokeToken, isRevoked } from "./token";
 import { verifyTurnstile } from "./turnstile";
 import type { Coordinator } from "../agents/coordinator";
 
@@ -136,16 +136,36 @@ async function deleteSession(
     return json({ error: "unauthorized" }, 401);
   }
 
+  if (isRevoked(sessionId)) {
+    return json({ status: "pending" }, 202);
+  }
+
   const coordinator = await getCoordinator(env);
-  await coordinator.release(sessionId);
+  try {
+    await coordinator.release(sessionId);
+  } catch {
+    // coordinator down — return pending tombstone
+    revokeToken(sessionId, Date.now() + 24 * 60 * 60 * 1000);
+    return json({ status: "pending" }, 202);
+  }
 
   const doId = env.SupportSession.idFromName(sessionId);
   const stub = env.SupportSession.get(doId);
 
+  let purged = false;
   try {
-    await stub.fetch(new Request(`https://internal/purge`, { method: "POST" }));
+    const purgeResp = await stub.fetch(
+      new Request(`https://internal/purge`, { method: "POST" })
+    );
+    purged = purgeResp.ok;
   } catch {
-    // best effort
+    // DO down — tombstone until expiry
+  }
+
+  revokeToken(sessionId, Date.now() + 24 * 60 * 60 * 1000);
+
+  if (!purged) {
+    return json({ status: "pending" }, 202);
   }
 
   return json({ status: "deleted" });

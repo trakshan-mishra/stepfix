@@ -2,9 +2,29 @@
 
 ## Current milestone
 
-M5 — Knowledge base (complete)
+v2 WO-1 through WO-12 complete (2026-09-13)
 
 ## What's done
+
+### v2 Work Orders (2026-09-13)
+
+- **WO-0** — Audit verified: report-after not reserve-before (coordinator-logic.ts:258), 24h day reset (line 262), Gemini/Z.ai enabled with guessed limits (models.config.ts:113,179), CF neurons per-model (line 135), router no max-3/no reservation (router.ts:50), mark_resolved no postcondition+original-task (tools.ts:255), handleStepResult uses truncateForUntrusted not scrub (tools.ts:298), /agents auth fall-through (server.ts:215), purge not clearing SDK messages (server.ts:175), eval/run-eval.ts fabricates fixed_by (line 84).
+- **WO-1** — Model registry truth: Gemini/Z.ai disabled by default (enabled:false, capacity 0, effectiveLimits null). Removed guessed rpd/tpm. CF neurons account-shared (quotaGroup: "cf-account-neurons"). Added quotaGroup, accountVerified, runtimeEnabled, effectiveLimits, freeEligibilityVerified, privacyConfigVerified, neuronRate, paid fields. Added isActionable(), resolveEntry(), getActionableCandidates(). Tests: 10 new registry tests.
+- **WO-2** — Atomic durable reservation ledger: reserve/dispatch fence/reconcile lifecycle in coordinator-logic.ts. Per-quotaKey-window entries (RPM/TPM/ITPM/OTPM/RPD/TPD, ASR sec, neurons, concurrency). Provider reset semantics (CF 00:00 UTC, Gemini midnight Pacific, Groq per-header). Idempotency keys. Dispatch fence (duplicate returns stored). Crash-after-dispatch charged conservatively. Coordinator unavailable => no live call. Tests: 23 reservation + 7 window tests.
+- **WO-3** — Router: prior reservation before each dispatch, hard max-3 attempts, 20s deadline, maxRetries:0. Wired into server.ts via createUIMessageStream. Mock and live router contexts. Playbook fallback on coordinator_unavailable. Tool-loop continuations reserve. Tests: 5 router-reservation + 4 buildReservationEntries tests.
+- **WO-4** — Auth: /agents rejects missing token (no fall-through), verifies subject matches route. Purge clears SDK messages via saveMessages(() => []). handleStepResult calls scrub() before truncate. Technician/support prompts loaded from .md files with placeholder replacement. Tests: 3 new (scrub, prompt placeholders).
+- **WO-5** — Session envelope: SessionEnvelope type, admitWithEnvelope (70% normal ceiling, 10% protected), consumeEnvelope (no double count), HARD_LIMITS (10min, 12 clips, 180s ASR, 4 light, 2 heavy, 6 VLM). Voice admission = TTS AND (local ASR OR cloud ASR). Text never counted as voice. Tests: 10 envelope tests.
+- **WO-6** — Case UI: ScriptCard rendered for recommend_step tool output, CasePanel mounted in session route, HandoffBanner for handoff. Assistant text sanitized (redactCommands + code fence removal). Case state tracked from tool outputs. Card cache for offline.
+- **WO-7** — Voice + live view: voice.ts (preflight TTS, preflight local ASR, TTS controller with interrupt). ocr.ts (FrameManager: 5s min between cloud frames, 6 max, one in-flight, validateFrame, cropFrame). audio.ts (stateless ASR endpoint /api/audio/asr, mock mode, Groq Whisper integration). Tests: 10 FrameManager + validateFrame tests.
+- **WO-8** — Playbook + degraded: degraded.ts (captureSnapshot, restoreFromSnapshot, isRestorable). Card cache (client localStorage). Playbook fallback already wired in WO-3. Restoration resumes prior role/state/caseVersion, not reset-to-Support. Tests: 7 degraded overlay tests.
+- **WO-9** — Handoff + resolution: caseVersion added to CaseFile (monotonic, bumped on handoff/resolve/escalate/handback). mark_resolved requires postconditionMet AND originalTaskMet (rejects without, continues diagnosis). handoff_to_technician advances caseVersion. Tests: 4 new (caseVersion monotonic, evidence preserved, postcondition rejection, original-task rejection).
+- **WO-10** — Eval integrity: machine.ts (createMachine, executeCommand, markFixed, isFullyFixed). simulator.ts (runSimulation with real step execution, no fabricated fixed_by). Scrub applied to outputs. Injection caught. Secret caught. 0 false-fixed. Tests: 4 machine + 6 simulator tests.
+- **WO-11** — Auth delete + tombstone: revokeToken/isRevoked/purgeExpiredRevocations in token.ts. Delete flow returns "pending" (202) if backend down, "deleted" only after confirmed. Revoked token rejected until expiry. Tests: 7 revocation tests.
+- **WO-12** — Load + latency: load-runner.ts (runLoadTest, runReservationLoadTest, formatReport). Progressive 5/10/20, burst 50, reservation load. p50/p95/max latency measurement. Mock quotas only. Tests: 6 load tests.
+
+**Total tests: 421 passed (16 test files). tsc clean. lint clean.**
+
+### M5 — Knowledge base (2026-09-11)
 
 ### M5 — Knowledge base (2026-09-11)
 

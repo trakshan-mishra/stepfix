@@ -13,7 +13,7 @@ import {
 import type { CaseFile, Step } from "../src/server/agent/case-file";
 
 function makeCaseFile(overrides: Partial<CaseFile> = {}): CaseFile {
-  return { os: "unknown", facts: [], ...overrides };
+  return { os: "unknown", facts: [], caseVersion: 0, ...overrides };
 }
 
 function makeStep(overrides: Partial<Step> = {}): Step {

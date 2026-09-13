@@ -1,22 +1,42 @@
 export type Role = "support" | "technician" | "vision" | "embed" | "simulator";
 export type Provider = "groq" | "gemini" | "workers-ai" | "zai";
 
+export interface ReferenceLimits {
+  rpm?: number;
+  tpm?: number;
+  itpm?: number;
+  otpm?: number;
+  rpd?: number;
+  tpd?: number;
+  audioSecondsPerHour?: number;
+  audioSecondsPerDay?: number;
+  neuronsPerDay?: number;
+}
+
+export type EffectiveLimits = ReferenceLimits;
+
+export interface NeuronRate {
+  inputPerMillion: number;
+  outputPerMillion: number;
+}
+
 export interface ModelEntry {
   key: string;
   provider: Provider;
   modelId: string;
   roles: Role[];
   caps: { tools: boolean; vision: boolean };
-  limits: {
-    rpm?: number;
-    tpm?: number;
-    rpd?: number;
-    tpd?: number;
-    neuronsPerDay?: number;
-  };
+  quotaGroup: string;
+  limits: ReferenceLimits;
+  effectiveLimits: EffectiveLimits | null;
+  neuronRate?: NeuronRate;
+  accountVerified: boolean;
+  runtimeEnabled: boolean;
+  freeEligibilityVerified: boolean;
+  privacyConfigVerified: boolean;
   trainsOnInputs: boolean;
   ttftMs: number;
-  enabled: boolean;
+  paid: boolean;
 }
 
 export const ROLE_CHAINS: Record<Role, string[]> = {
@@ -45,6 +65,8 @@ export const ROLE_CHAINS: Record<Role, string[]> = {
 
 export const PRIVACY_EXCLUDED_PROVIDERS: Provider[] = ["gemini", "zai"];
 
+export const CF_NEURONS_PER_DAY = 10000;
+
 export function getModelEntry(
   key: string,
   env: Record<string, string | undefined>
@@ -66,10 +88,16 @@ export function buildRegistry(
       modelId: "openai/gpt-oss-20b",
       roles: ["support", "technician", "simulator"],
       caps: { tools: true, vision: false },
+      quotaGroup: "groq-org-text",
       limits: { rpm: 30, tpm: 8000, rpd: 1000, tpd: 200000 },
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 5000,
-      enabled: true
+      paid: false
     },
     {
       key: "groq:gpt-oss-120b",
@@ -77,10 +105,16 @@ export function buildRegistry(
       modelId: "openai/gpt-oss-120b",
       roles: ["technician"],
       caps: { tools: true, vision: false },
+      quotaGroup: "groq-org-text",
       limits: { rpm: 30, tpm: 8000, rpd: 1000, tpd: 200000 },
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 8000,
-      enabled: true
+      paid: false
     },
     {
       key: "groq:qwen3.8-27b",
@@ -88,10 +122,16 @@ export function buildRegistry(
       modelId: "qwen/qwen3.8-27b",
       roles: ["vision"],
       caps: { tools: false, vision: true },
+      quotaGroup: "groq-org-vlm",
       limits: { rpm: 30, tpm: 8000, rpd: 1000, tpd: 200000 },
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 8000,
-      enabled: true
+      paid: false
     },
     {
       key: "groq:qwen3.6-27b",
@@ -99,10 +139,16 @@ export function buildRegistry(
       modelId: "qwen/qwen3.6-27b",
       roles: ["vision"],
       caps: { tools: false, vision: true },
+      quotaGroup: "groq-org-vlm",
       limits: { rpm: 30, tpm: 8000, rpd: 1000, tpd: 200000 },
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 8000,
-      enabled: true
+      paid: false
     },
     {
       key: "gemini:flash",
@@ -110,10 +156,16 @@ export function buildRegistry(
       modelId: geminiFlashModel,
       roles: ["technician", "vision"],
       caps: { tools: true, vision: true },
-      limits: { rpm: 15, tpm: 250000, rpd: 1500 },
+      quotaGroup: "gemini-project",
+      limits: {},
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: true,
       ttftMs: 6000,
-      enabled: true
+      paid: false
     },
     {
       key: "gemini:flash-lite",
@@ -121,21 +173,33 @@ export function buildRegistry(
       modelId: geminiFlashLiteModel,
       roles: ["support"],
       caps: { tools: true, vision: false },
-      limits: { rpm: 15, tpm: 250000, rpd: 1500 },
+      quotaGroup: "gemini-project",
+      limits: {},
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: true,
       ttftMs: 4000,
-      enabled: true
+      paid: false
     },
     {
       key: "workers-ai:glm-4.7-flash",
       provider: "workers-ai",
-      modelId: "@cf/zai-org/glm-4.7-flash",
+      modelId: "@cf/meta/llama-3.1-8b-instruct",
       roles: ["support", "technician"],
       caps: { tools: true, vision: false },
-      limits: { neuronsPerDay: 10000 },
+      quotaGroup: "cf-account-neurons",
+      limits: {},
+      effectiveLimits: { neuronsPerDay: 10000 },
+      accountVerified: true,
+      runtimeEnabled: true,
+      freeEligibilityVerified: true,
+      privacyConfigVerified: true,
       trainsOnInputs: false,
       ttftMs: 5000,
-      enabled: true
+      paid: false
     },
     {
       key: "workers-ai:gpt-oss-120b",
@@ -143,10 +207,16 @@ export function buildRegistry(
       modelId: "@cf/openai/gpt-oss-120b",
       roles: ["technician"],
       caps: { tools: true, vision: false },
-      limits: { neuronsPerDay: 10000 },
+      quotaGroup: "cf-account-neurons",
+      limits: {},
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 8000,
-      enabled: true
+      paid: false
     },
     {
       key: "workers-ai:llama-4-scout",
@@ -154,10 +224,16 @@ export function buildRegistry(
       modelId: "@cf/meta/llama-4-scout-17b-16e-instruct",
       roles: ["vision"],
       caps: { tools: true, vision: true },
-      limits: { neuronsPerDay: 10000 },
+      quotaGroup: "cf-account-neurons",
+      limits: {},
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 10000,
-      enabled: true
+      paid: false
     },
     {
       key: "workers-ai:bge-small-en-v1.5",
@@ -165,10 +241,16 @@ export function buildRegistry(
       modelId: "@cf/baai/bge-small-en-v1.5",
       roles: ["embed"],
       caps: { tools: false, vision: false },
-      limits: { neuronsPerDay: 10000 },
+      quotaGroup: "cf-account-neurons",
+      limits: {},
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 3000,
-      enabled: true
+      paid: false
     },
     {
       key: "zai:glm-4.7-flash",
@@ -176,10 +258,16 @@ export function buildRegistry(
       modelId: "glm-4.7-flash",
       roles: ["support", "technician"],
       caps: { tools: true, vision: false },
-      limits: { rpd: 1000 },
+      quotaGroup: "zai-org",
+      limits: {},
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 6000,
-      enabled: true
+      paid: false
     },
     {
       key: "zai:glm-4.6v-flash",
@@ -187,12 +275,37 @@ export function buildRegistry(
       modelId: "glm-4.6v-flash",
       roles: ["vision"],
       caps: { tools: false, vision: true },
-      limits: { rpd: 1000 },
+      quotaGroup: "zai-org",
+      limits: {},
+      effectiveLimits: null,
+      accountVerified: false,
+      runtimeEnabled: false,
+      freeEligibilityVerified: false,
+      privacyConfigVerified: false,
       trainsOnInputs: false,
       ttftMs: 8000,
-      enabled: true
+      paid: false
     }
   ];
+}
+
+export function isActionable(entry: ModelEntry): boolean {
+  if (entry.paid) return false;
+  if (!entry.runtimeEnabled) return false;
+  if (!entry.accountVerified) return false;
+  if (!entry.freeEligibilityVerified) return false;
+  if (!entry.privacyConfigVerified) return false;
+  return true;
+}
+
+export function resolveEntry(
+  key: string,
+  env: Record<string, string | undefined>
+): ModelEntry | undefined {
+  const entry = getModelEntry(key, env);
+  if (!entry) return undefined;
+  if (!isActionable(entry)) return undefined;
+  return entry;
 }
 
 export function getRoleChain(role: Role, privacyMode: boolean): string[] {
@@ -202,4 +315,17 @@ export function getRoleChain(role: Role, privacyMode: boolean): string[] {
     const provider = key.split(":")[0] as Provider;
     return !PRIVACY_EXCLUDED_PROVIDERS.includes(provider);
   });
+}
+
+export function getActionableCandidates(
+  role: Role,
+  privacyMode: boolean,
+  env: Record<string, string | undefined>
+): ModelEntry[] {
+  const chain = getRoleChain(role, privacyMode);
+  const registry = buildRegistry(env);
+  return chain
+    .map((key) => registry.find((e) => e.key === key))
+    .filter((e): e is ModelEntry => e !== undefined)
+    .filter(isActionable);
 }

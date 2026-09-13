@@ -24,11 +24,13 @@ import {
   isTerminal
 } from "../src/server/agent/phases";
 import { buildEscalationReport } from "../src/server/report/escalation";
+import { buildSystemPrompt } from "../src/server/agent/prepare-messages";
 
 function makeCaseFile(overrides: Partial<CaseFile> = {}): CaseFile {
   return {
     os: "unknown",
     facts: [],
+    caseVersion: 0,
     ...overrides
   };
 }
@@ -252,6 +254,45 @@ describe("tool: handoff_to_technician", () => {
     expect(result.ok).toBe(true);
     expect(ctx.state.phase).toBe("technician");
   });
+
+  it("advances caseVersion on handoff (monotonic)", async () => {
+    const ctx = makeToolContext({
+      caseFile: makeCaseFile({
+        os: "ubuntu",
+        category: "bluetooth",
+        symptom: "Bluetooth stopped",
+        errorText: "No adapter",
+        caseVersion: 0
+      })
+    });
+    const tools = buildTools(ctx);
+    expect(ctx.state.caseFile.caseVersion).toBe(0);
+    const result = await callTool(tools, "handoff_to_technician", {
+      summary: "Bluetooth broken"
+    });
+    expect(result.ok).toBe(true);
+    expect(ctx.state.caseFile.caseVersion).toBe(1);
+    expect(ctx.state.caseFile.caseVersion).toBeGreaterThan(0);
+  });
+
+  it("keeps same case ID and evidence after handoff", async () => {
+    const ctx = makeToolContext({
+      caseFile: makeCaseFile({
+        os: "ubuntu",
+        category: "bluetooth",
+        symptom: "Bluetooth stopped",
+        errorText: "No adapter",
+        facts: [{ key: "adapter", value: "USB dongle", source: "user", at: Date.now() }]
+      })
+    });
+    const tools = buildTools(ctx);
+    const result = await callTool(tools, "handoff_to_technician", {
+      summary: "Bluetooth broken"
+    });
+    expect(result.ok).toBe(true);
+    expect(ctx.state.caseFile.facts.length).toBe(1);
+    expect(ctx.state.caseFile.facts[0].key).toBe("adapter");
+  });
 });
 
 describe("tool: recommend_step", () => {
@@ -342,22 +383,78 @@ describe("tool: mark_resolved", () => {
     });
     const tools = buildTools(ctx);
     const result = await callTool(tools, "mark_resolved", {
-      rootCause: "test"
+      rootCause: "test",
+      postconditionMet: true,
+      originalTaskMet: true
     });
     expect(result.ok).toBe(false);
   });
 
-  it("accepts when last step is worked", async () => {
+  it("accepts when last step is worked and both conditions met", async () => {
     const ctx = makeToolContext({
       phase: "technician",
       steps: [makeStep({ status: "worked" })]
     });
     const tools = buildTools(ctx);
     const result = await callTool(tools, "mark_resolved", {
-      rootCause: "Bluetooth was soft-blocked"
+      rootCause: "Bluetooth was soft-blocked",
+      postconditionMet: true,
+      originalTaskMet: true
     });
     expect(result.ok).toBe(true);
     expect(ctx.state.phase).toBe("resolved");
+  });
+
+  it("rejects when postcondition not met", async () => {
+    const ctx = makeToolContext({
+      phase: "technician",
+      steps: [makeStep({ status: "worked" })]
+    });
+    const tools = buildTools(ctx);
+    const result = await callTool(tools, "mark_resolved", {
+      rootCause: "test",
+      postconditionMet: false,
+      originalTaskMet: true
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Postcondition not met");
+      expect(result.error).toContain("Continue");
+    }
+    expect(ctx.state.phase).toBe("technician");
+  });
+
+  it("rejects when original task not confirmed", async () => {
+    const ctx = makeToolContext({
+      phase: "technician",
+      steps: [makeStep({ status: "worked" })]
+    });
+    const tools = buildTools(ctx);
+    const result = await callTool(tools, "mark_resolved", {
+      rootCause: "test",
+      postconditionMet: true,
+      originalTaskMet: false
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Original task not confirmed");
+    }
+    expect(ctx.state.phase).toBe("technician");
+  });
+
+  it("does not escalate when postcondition unmet (continues diagnosis)", async () => {
+    const ctx = makeToolContext({
+      phase: "technician",
+      steps: [makeStep({ status: "ran" })]
+    });
+    const tools = buildTools(ctx);
+    const result = await callTool(tools, "mark_resolved", {
+      rootCause: "test",
+      postconditionMet: false,
+      originalTaskMet: false
+    });
+    expect(result.ok).toBe(false);
+    expect(ctx.state.phase).toBe("technician");
   });
 });
 
@@ -407,6 +504,67 @@ describe("handleStepResult", () => {
     if (result.updated && result.step) {
       expect(result.step.matchedPatterns).toContain("Soft blocked: yes");
     }
+  });
+
+  it("scrubs secrets from step output", () => {
+    const ctx = makeToolContext({
+      phase: "technician",
+      steps: [
+        makeStep({
+          stepId: "s1",
+          status: "pending",
+          scriptId: "linux.bt.rfkill_list"
+        })
+      ]
+    });
+    const result = handleStepResult(
+      ctx,
+      "s1",
+      "ran",
+      "export GROQ_API_KEY=gsk_123456789012345678901234567890"
+    );
+    expect(result.updated).toBe(true);
+    if (result.updated && result.step && result.step.output) {
+      expect(result.step.output).toContain("[REDACTED:groq]");
+      expect(result.step.output).not.toContain(
+        "gsk_123456789012345678901234567890"
+      );
+    }
+  });
+});
+
+describe("buildSystemPrompt placeholder wiring", () => {
+  it("technician prompt has placeholders replaced", () => {
+    const caseFile = makeCaseFile({
+      os: "ubuntu",
+      category: "bluetooth",
+      symptom: "Bluetooth not working"
+    });
+    const steps = [
+      makeStep({ scriptId: "linux.bt.rfkill_list", status: "ran" })
+    ];
+    const prompt = buildSystemPrompt(
+      "technician",
+      caseFile,
+      steps,
+      "- linux.bt.rfkill_list | test script"
+    );
+    expect(prompt).not.toContain("{{CASE_JSON}}");
+    expect(prompt).not.toContain("{{STEPS_TABLE}}");
+    expect(prompt).not.toContain("{{CATALOG_SUBSET}}");
+    expect(prompt).toContain("ubuntu");
+    expect(prompt).toContain("linux.bt.rfkill_list");
+  });
+
+  it("support prompt loads from markdown file", () => {
+    const prompt = buildSystemPrompt(
+      "support",
+      makeCaseFile(),
+      [],
+      ""
+    );
+    expect(prompt).toContain("Support agent");
+    expect(prompt).toContain("update_case");
   });
 });
 

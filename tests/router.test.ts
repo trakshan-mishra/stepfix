@@ -9,6 +9,9 @@ import {
 import {
   buildRegistry,
   getRoleChain,
+  isActionable,
+  resolveEntry,
+  getActionableCandidates,
   PRIVACY_EXCLUDED_PROVIDERS,
   type Role
 } from "../src/server/llm/models.config";
@@ -194,11 +197,105 @@ describe("model registry", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("all enabled entries are enabled", () => {
+  it("all entries default to disabled (unverified) except activated CF GLM", () => {
     const registry = buildRegistry(env);
     for (const entry of registry) {
-      expect(entry.enabled).toBe(true);
+      if (entry.key === "workers-ai:glm-4.7-flash") {
+        expect(isActionable(entry)).toBe(true);
+      } else {
+        expect(isActionable(entry)).toBe(false);
+      }
     }
+  });
+
+  it("every unverified entry resolves to disabled", () => {
+    const registry = buildRegistry(env);
+    for (const entry of registry) {
+      if (entry.key === "workers-ai:glm-4.7-flash") {
+        expect(resolveEntry(entry.key, env)).toBeDefined();
+      } else {
+        expect(resolveEntry(entry.key, env)).toBeUndefined();
+      }
+    }
+  });
+
+  it("a key alone does not activate a model (except user-activated CF GLM)", () => {
+    const registry = buildRegistry(env);
+    for (const entry of registry) {
+      if (entry.key === "workers-ai:glm-4.7-flash") continue;
+      expect(entry.runtimeEnabled).toBe(false);
+      expect(entry.accountVerified).toBe(false);
+      expect(entry.freeEligibilityVerified).toBe(false);
+      expect(entry.privacyConfigVerified).toBe(false);
+      expect(entry.effectiveLimits).toBe(null);
+    }
+  });
+
+  it("privacy mode is not the only gate disabling gemini/zai", () => {
+    const registry = buildRegistry(env);
+    const geminiAndZai = registry.filter(
+      (e) => e.provider === "gemini" || e.provider === "zai"
+    );
+    for (const entry of geminiAndZai) {
+      expect(isActionable(entry)).toBe(false);
+    }
+  });
+
+  it("gemini has no guessed limits (empty reference limits)", () => {
+    const registry = buildRegistry(env);
+    const gemini = registry.filter((e) => e.provider === "gemini");
+    for (const e of gemini) {
+      expect(e.limits.rpd).toBeUndefined();
+      expect(e.limits.tpm).toBeUndefined();
+    }
+  });
+
+  it("zai has no guessed limits", () => {
+    const registry = buildRegistry(env);
+    const zai = registry.filter((e) => e.provider === "zai");
+    for (const e of zai) {
+      expect(e.limits.rpd).toBeUndefined();
+    }
+  });
+
+  it("cf neurons are account-shared (no per-model neuronsPerDay)", () => {
+    const registry = buildRegistry(env);
+    const cf = registry.filter((e) => e.provider === "workers-ai");
+    for (const e of cf) {
+      expect(e.limits).toEqual({});
+      expect(e.quotaGroup).toBe("cf-account-neurons");
+    }
+  });
+
+  it("cf glm-4.7-flash has neuron rate for estimation", () => {
+    const registry = buildRegistry(env);
+    const glm = registry.find((e) => e.key === "workers-ai:glm-4.7-flash");
+    expect(glm?.neuronRate).toEqual({
+      inputPerMillion: 5500,
+      outputPerMillion: 36400
+    });
+  });
+
+  it("groq has reference limits with rpm/tpm/rpd/tpd", () => {
+    const registry = buildRegistry(env);
+    const groqText = registry.find((e) => e.key === "groq:gpt-oss-20b");
+    expect(groqText?.limits.rpm).toBe(30);
+    expect(groqText?.limits.tpm).toBe(8000);
+    expect(groqText?.limits.rpd).toBe(1000);
+    expect(groqText?.limits.tpd).toBe(200000);
+  });
+
+  it("supports itpm/otpm split in limits type", () => {
+    const registry = buildRegistry(env);
+    const entry = registry[0];
+    expect(entry.limits.itpm).toBeUndefined();
+    expect(entry.limits.otpm).toBeUndefined();
+  });
+
+  it("getActionableCandidates returns only activated CF GLM", () => {
+    const candidates = getActionableCandidates("support", false, env);
+    expect(candidates.length).toBe(1);
+    expect(candidates[0].key).toBe("workers-ai:glm-4.7-flash");
   });
 
   it("gemini models use env var model IDs", () => {
