@@ -2,7 +2,7 @@
 
 ## DEV challenge completion summary (2026-10-04)
 
-- WO-A, WO-B, WO-C, and WO-D are complete, together with Amendments 1 through 4.
+- WO-A, WO-B, WO-C, and WO-D are complete, together with Amendments 1 through 5.
 - `npm test`: 427 tests passed across 16 test files.
 - `npm run check`: formatting, lint, and TypeScript passed.
 - WO-C initially failed to render a ScriptCard because the ESM Worker tried to load the library with CommonJS `require()`. The focused regression test reproduced it, the static-import fix passed, and the live retry showed the expected command, explanation, outcomes, handoff, and result transition.
@@ -78,6 +78,18 @@
 - Replaced the Cloudflare Agents starter README with a short stepfix overview, reviewed-library safety model, amended Groq/Workers AI model line, local setup, current test commands and count, beta platform scope, and MIT license reference.
 - Removed the starter badges, demo prompts, weather, scheduling, MCP, provider examples, and starter-template project structure.
 - `npm test`: `Test Files 16 passed (16)`; `Tests 427 passed (427)`.
+- `npm run check`: formatting, lint, and TypeScript passed with no errors.
+
+### Amendment 5 — Out-of-scope cases and honest escalation
+
+- Gated Support-to-Technician handoff on actual script coverage. A complete case with no matching OS/category catalog now returns `reason: "out_of_scope"`, lists the three supported areas, and remains in Support; a covered Ubuntu Wi-Fi case still hands off.
+- Made escalation results explicit: `notified: false` plus the required instruction to copy or download the report and share it with a trusted helper or help forum.
+- Updated both prompts to forbid claims that a person or team received the case or will make contact. The technician prompt also forbids narrating access to the user's machine and constrains every turn to one valid terminal action.
+- Added the automatic-notification disclosure to the ReportCard and added eval scenario S14 for Ubuntu on-screen-keyboard flicker, expecting no handoff, no script card, an honest scope explanation, and no contact claim.
+- Regression run before the fix: `npx vitest run tests/agent.test.ts` reported `2 failed | 51 passed`. The out-of-scope case incorrectly returned `{ ok: true }`, and escalation returned no `notified` field. After the fix, the focused run reported `Test Files 1 passed (1)` and `Tests 53 passed (53)`.
+- Live check message: “on-screen keyboard flickering on Ubuntu”. Support replied that stepfix currently covers Wi-Fi/internet, Bluetooth, and command-line tools that will not install because of PATH problems, then produced an escalation report. No Technician handoff or ScriptCard appeared. The ReportCard said, “Nobody has been notified automatically. Copy or download this and send it to someone you trust to help,” and the closing reply told the user to share the report themselves. No wording said a human received the case or would contact the user.
+- The live model also added an unsupported `ticket.openai.com` eligibility suggestion and a “Pending escalation” label in its own prose/table. Those did not claim automatic notification or future contact, but they are unrelated model-generated copy and remain a follow-up outside Amendment 5's specified assertions.
+- `npm test`: 429 tests passed across 16 test files.
 - `npm run check`: formatting, lint, and TypeScript passed with no errors.
 
 ## Current milestone

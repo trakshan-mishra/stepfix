@@ -7,7 +7,7 @@ import {
   missingForHandoff,
   CaseFile as CaseFileSchema
 } from "./case-file";
-import { getScript, renderCommand } from "../library/index";
+import { catalogFor, getScript, renderCommand } from "../library/index";
 import { buildEscalationReport } from "../report/escalation";
 import { transition } from "./phases";
 import { wrapUntrusted, truncateForUntrusted } from "../guardrails/untrusted";
@@ -103,6 +103,18 @@ export function buildTools(ctx: ToolContext) {
         const missing = missingForHandoff(ctx.state.caseFile);
         if (missing.length > 0) {
           return { ok: false, missing };
+        }
+        const { os, category } = ctx.state.caseFile;
+        if (!category || catalogFor(os, category).length === 0) {
+          return {
+            ok: false,
+            reason: "out_of_scope",
+            supported: [
+              "Wi-Fi/internet",
+              "Bluetooth",
+              "command-line tools not found or not installing"
+            ]
+          };
         }
         ctx.state.caseFile.summary = input.summary;
         ctx.state.caseFile.caseVersion += 1;
@@ -246,7 +258,14 @@ export function buildTools(ctx: ToolContext) {
         ctx.state.phase = transition(ctx.state.phase as never, "escalated");
         ctx.state.reportId = nanoid(12);
         ctx.setState(ctx.state);
-        return { ok: true, reportId: ctx.state.reportId, markdown: report };
+        return {
+          ok: true,
+          notified: false,
+          reportId: ctx.state.reportId,
+          markdown: report,
+          instruction:
+            "Nobody has been notified. Tell the user they can copy or download this report and send it to someone who helps them with tech, or post it on a help forum."
+        };
       }
     }),
 

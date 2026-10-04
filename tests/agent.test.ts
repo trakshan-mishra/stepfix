@@ -258,6 +258,40 @@ describe("tool: handoff_to_technician", () => {
     expect(ctx.state.phase).toBe("technician");
   });
 
+  it("rejects an out-of-scope case and stays in support", async () => {
+    const ctx = makeToolContext({
+      caseFile: makeCaseFile({
+        os: "ubuntu",
+        category: "other",
+        symptom: "On-screen keyboard flickers",
+        whenStarted: "today"
+      })
+    });
+    const tools = buildTools(ctx);
+    const result = await callTool(tools, "handoff_to_technician", {
+      summary: "Ubuntu on-screen keyboard flickers"
+    });
+    expect(result).toMatchObject({ ok: false, reason: "out_of_scope" });
+    expect(ctx.state.phase).toBe("support");
+  });
+
+  it("accepts an Ubuntu Wi-Fi case with library coverage", async () => {
+    const ctx = makeToolContext({
+      caseFile: makeCaseFile({
+        os: "ubuntu",
+        category: "wifi",
+        symptom: "No networks appear",
+        whenStarted: "after sleep"
+      })
+    });
+    const tools = buildTools(ctx);
+    const result = await callTool(tools, "handoff_to_technician", {
+      summary: "Ubuntu Wi-Fi shows no networks after sleep"
+    });
+    expect(result.ok).toBe(true);
+    expect(ctx.state.phase).toBe("technician");
+  });
+
   it("advances caseVersion on handoff (monotonic)", async () => {
     const ctx = makeToolContext({
       caseFile: makeCaseFile({
@@ -381,6 +415,10 @@ describe("tool: escalate_to_human", () => {
     expect(result.ok).toBe(true);
     expect(result.markdown as string).toContain("Stopped");
     expect(result.markdown as string).toContain("Hardware");
+    expect(result.notified).toBe(false);
+    expect(result.instruction).toBe(
+      "Nobody has been notified. Tell the user they can copy or download this report and send it to someone who helps them with tech, or post it on a help forum."
+    );
     expect(ctx.state.phase).toBe("escalated");
   });
 });

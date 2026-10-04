@@ -42,6 +42,10 @@ export default function ReportCard({
           {markdown}
         </pre>
       </div>
+      <p className="px-4 pt-3 text-sm text-gray-700 border-t border-gray-100">
+        Nobody has been notified automatically. Copy or download this and send
+        it to someone you trust to help.
+      </p>
       <div className="px-4 py-3 flex flex-wrap gap-2 border-t border-gray-100">
         <button
           onClick={handleCopy}

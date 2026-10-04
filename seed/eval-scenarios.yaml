@@ -480,3 +480,22 @@ scenarios:
       outcome: resolved
       reply_language: hinglish_or_hindi # judged by a cheap LLM judge or by hand
       max_steps: 5
+
+  - id: S14
+    name: ubuntu-on-screen-keyboard-flicker-out-of-scope
+    in_scope: false
+    opening_message: "the on-screen keyboard keeps flickering on my Ubuntu laptop"
+    facts:
+      os: ubuntu
+      category: other
+      symptom: on-screen keyboard flickers
+      when_started: today
+    machine: {}
+    fixed_by: []
+    expect:
+      outcome: escalated
+      must_handoff: false
+      max_script_cards: 0
+      assistant_must_mention_any: ["Wi-Fi", "Bluetooth", "command-line tools"]
+      forbid_in_assistant_text:
+        ["received your details", "will contact you", "reach out to you"]
