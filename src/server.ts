@@ -15,10 +15,7 @@ import { generateSitemap } from "./server/seo";
 import { verifyToken } from "./server/http/token";
 import { createMockModel } from "./server/llm/mock";
 import { Coordinator } from "./server/agents/coordinator";
-import {
-  buildTools,
-  handleStepResult
-} from "./server/agent/tools";
+import { buildTools, handleStepResult } from "./server/agent/tools";
 import {
   buildSystemPrompt,
   formatCatalogSubset,
@@ -204,18 +201,12 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
           write: (chunk: Parameters<typeof writer.write>[0]) => {
             writer.write(chunk);
             if (chunk.type === "text-delta") {
-              assistantText +=
-                (chunk as { delta?: string }).delta ?? "";
+              assistantText += (chunk as { delta?: string }).delta ?? "";
             }
           }
         } as UIMessageStreamWriter;
 
-        const result = await streamTurn(
-          ctx,
-          phase,
-          turnReq,
-          trackingWriter
-        );
+        const result = await streamTurn(ctx, phase, turnReq, trackingWriter);
 
         if (!result.ok) {
           const reason = !result.ok ? result.reason : "";
@@ -308,8 +299,7 @@ function buildMockRouterContext(env: Env, chaos: ChaosFlags): RouterContext {
     report: () => {},
     isCooling: () => false,
     chaos,
-    reserve: async () =>
-      ({ ok: true, lease: mockLease }) as ReserveOutcome,
+    reserve: async () => ({ ok: true, lease: mockLease }) as ReserveOutcome,
     dispatch: async (leaseId: string) =>
       ({
         ok: true,
@@ -336,7 +326,10 @@ async function buildLiveRouterContext(
 
   const coordinatorId = env.Coordinator.idFromName("global");
   const coordinator = env.Coordinator.get(coordinatorId) as unknown as {
-    reserve(req: ReserveRequest, limits: Record<string, number>): Promise<ReserveOutcome>;
+    reserve(
+      req: ReserveRequest,
+      limits: Record<string, number>
+    ): Promise<ReserveOutcome>;
     dispatch(leaseId: string): Promise<DispatchOutcome>;
     reconcile(leaseId: string, usage: Usage): Promise<ReconcileOutcome>;
   };
@@ -358,7 +351,11 @@ async function buildLiveRouterContext(
   return {
     candidates: actionable,
     getModel: (entry: ModelEntry) =>
-      getModel(entry, env as unknown as Record<string, string | undefined>, env.AI),
+      getModel(
+        entry,
+        env as unknown as Record<string, string | undefined>,
+        env.AI
+      ),
     report: () => {},
     isCooling: () => false,
     chaos,

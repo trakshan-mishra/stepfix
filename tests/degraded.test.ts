@@ -105,9 +105,12 @@ describe("degraded overlay — capture and restore", () => {
   });
 
   it("preserves pending action through snapshot", () => {
-    const snapshot = captureSnapshot("technician", makeCaseFile(), [
-      makeStep({ stepId: "pending-1", status: "pending" })
-    ], 4);
+    const snapshot = captureSnapshot(
+      "technician",
+      makeCaseFile(),
+      [makeStep({ stepId: "pending-1", status: "pending" })],
+      4
+    );
     const restored = restoreFromSnapshot(snapshot);
     const pendingStep = restored.steps.find((s) => s.status === "pending");
     expect(pendingStep?.stepId).toBe("pending-1");

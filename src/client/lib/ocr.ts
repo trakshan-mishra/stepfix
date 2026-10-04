@@ -99,11 +99,7 @@ export async function cropFrame(
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
   return new Promise((resolve) => {
-    canvas.toBlob(
-      (result) => resolve(result ?? blob),
-      "image/jpeg",
-      0.7
-    );
+    canvas.toBlob((result) => resolve(result ?? blob), "image/jpeg", 0.7);
   });
 }
 

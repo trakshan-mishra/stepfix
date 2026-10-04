@@ -315,7 +315,11 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
   const [mcpUrl, setMcpUrl] = useState("");
   const [isAddingServer, setIsAddingServer] = useState(false);
   const mcpPanelRef = useRef<HTMLDivElement>(null);
-  const [caseFile, setCaseFile] = useState<CaseFile>({ os: "unknown", facts: [], caseVersion: 0 });
+  const [caseFile, setCaseFile] = useState<CaseFile>({
+    os: "unknown",
+    facts: [],
+    caseVersion: 0
+  });
   const [caseSteps, setCaseSteps] = useState<Step[]>([]);
   const [casePhase, setCasePhase] = useState<string>("support");
 
@@ -789,155 +793,161 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
         <div className="flex gap-4 max-w-5xl mx-auto px-5 py-6">
-        <div className="flex-1 space-y-5">
-          {messages.length === 0 && (
-            <Empty
-              icon={<ChatCircleDotsIcon size={32} />}
-              title="Start a conversation"
-              contents={
-                <div className="flex flex-wrap justify-center gap-2">
-                  {[
-                    "What's the weather in Paris?",
-                    "What timezone am I in?",
-                    "Calculate 5000 * 3",
-                    "Remind me in 5 minutes to take a break"
-                  ].map((prompt) => (
-                    <Button
-                      key={prompt}
-                      variant="outline"
-                      size="sm"
-                      disabled={isStreaming}
-                      onClick={() => {
-                        sendMessage({
-                          role: "user",
-                          parts: [{ type: "text", text: prompt }]
-                        });
-                      }}
-                    >
-                      {prompt}
-                    </Button>
-                  ))}
-                </div>
-              }
-            />
-          )}
-
-          {messages.map((message: UIMessage, index: number) => {
-            const isUser = message.role === "user";
-            const isLastAssistant =
-              message.role === "assistant" && index === messages.length - 1;
-
-            return (
-              <div key={message.id} className="space-y-2">
-                {showDebug && (
-                  <pre className="text-[11px] text-kumo-subtle bg-kumo-control rounded-lg p-3 overflow-auto max-h-64">
-                    {JSON.stringify(message, null, 2)}
-                  </pre>
-                )}
-
-                {/* Render parts in chronological (array) order */}
-                {message.parts.map((part, i) => {
-                  const key = `${message.id}-${i}`;
-
-                  if (isToolUIPart(part)) {
-                    return (
-                      <ToolPartView
-                        key={key}
-                        part={part}
-                        addToolApprovalResponse={addToolApprovalResponse}
-                        onStepResult={handleStepResult}
-                      />
-                    );
-                  }
-
-                  if (part.type === "reasoning") {
-                    if (!part.text.trim()) return null;
-                    const isDone = part.state === "done" || !isStreaming;
-                    return (
-                      <div key={key} className="flex justify-start">
-                        <details className="max-w-[85%] w-full" open={!isDone}>
-                          <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
-                            <BrainIcon size={14} className="text-purple-400" />
-                            <span className="font-medium text-kumo-default">
-                              Reasoning
-                            </span>
-                            {isDone ? (
-                              <span className="text-xs text-kumo-success">
-                                Complete
-                              </span>
-                            ) : (
-                              <span className="text-xs text-kumo-brand">
-                                Thinking...
-                              </span>
-                            )}
-                            <CaretDownIcon
-                              size={14}
-                              className="ml-auto text-kumo-inactive"
-                            />
-                          </summary>
-                          <pre className="mt-2 px-3 py-2 rounded-lg bg-kumo-control text-xs text-kumo-default whitespace-pre-wrap overflow-auto max-h-64">
-                            {part.text}
-                          </pre>
-                        </details>
-                      </div>
-                    );
-                  }
-
-                  if (
-                    part.type === "file" &&
-                    part.mediaType.startsWith("image/")
-                  ) {
-                    return (
-                      <div
-                        key={key}
-                        className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+          <div className="flex-1 space-y-5">
+            {messages.length === 0 && (
+              <Empty
+                icon={<ChatCircleDotsIcon size={32} />}
+                title="Start a conversation"
+                contents={
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {[
+                      "What's the weather in Paris?",
+                      "What timezone am I in?",
+                      "Calculate 5000 * 3",
+                      "Remind me in 5 minutes to take a break"
+                    ].map((prompt) => (
+                      <Button
+                        key={prompt}
+                        variant="outline"
+                        size="sm"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          sendMessage({
+                            role: "user",
+                            parts: [{ type: "text", text: prompt }]
+                          });
+                        }}
                       >
-                        <img
-                          src={part.url}
-                          alt="Attachment"
-                          className="max-h-64 rounded-xl border border-kumo-line object-contain"
-                        />
-                      </div>
-                    );
-                  }
+                        {prompt}
+                      </Button>
+                    ))}
+                  </div>
+                }
+              />
+            )}
 
-                  if (part.type === "text") {
-                    if (!part.text) return null;
+            {messages.map((message: UIMessage, index: number) => {
+              const isUser = message.role === "user";
+              const isLastAssistant =
+                message.role === "assistant" && index === messages.length - 1;
 
-                    if (isUser) {
+              return (
+                <div key={message.id} className="space-y-2">
+                  {showDebug && (
+                    <pre className="text-[11px] text-kumo-subtle bg-kumo-control rounded-lg p-3 overflow-auto max-h-64">
+                      {JSON.stringify(message, null, 2)}
+                    </pre>
+                  )}
+
+                  {/* Render parts in chronological (array) order */}
+                  {message.parts.map((part, i) => {
+                    const key = `${message.id}-${i}`;
+
+                    if (isToolUIPart(part)) {
                       return (
-                        <div key={key} className="flex justify-end">
-                          <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-kumo-contrast text-kumo-inverse leading-relaxed">
-                            {part.text}
+                        <ToolPartView
+                          key={key}
+                          part={part}
+                          addToolApprovalResponse={addToolApprovalResponse}
+                          onStepResult={handleStepResult}
+                        />
+                      );
+                    }
+
+                    if (part.type === "reasoning") {
+                      if (!part.text.trim()) return null;
+                      const isDone = part.state === "done" || !isStreaming;
+                      return (
+                        <div key={key} className="flex justify-start">
+                          <details
+                            className="max-w-[85%] w-full"
+                            open={!isDone}
+                          >
+                            <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
+                              <BrainIcon
+                                size={14}
+                                className="text-purple-400"
+                              />
+                              <span className="font-medium text-kumo-default">
+                                Reasoning
+                              </span>
+                              {isDone ? (
+                                <span className="text-xs text-kumo-success">
+                                  Complete
+                                </span>
+                              ) : (
+                                <span className="text-xs text-kumo-brand">
+                                  Thinking...
+                                </span>
+                              )}
+                              <CaretDownIcon
+                                size={14}
+                                className="ml-auto text-kumo-inactive"
+                              />
+                            </summary>
+                            <pre className="mt-2 px-3 py-2 rounded-lg bg-kumo-control text-xs text-kumo-default whitespace-pre-wrap overflow-auto max-h-64">
+                              {part.text}
+                            </pre>
+                          </details>
+                        </div>
+                      );
+                    }
+
+                    if (
+                      part.type === "file" &&
+                      part.mediaType.startsWith("image/")
+                    ) {
+                      return (
+                        <div
+                          key={key}
+                          className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                        >
+                          <img
+                            src={part.url}
+                            alt="Attachment"
+                            className="max-h-64 rounded-xl border border-kumo-line object-contain"
+                          />
+                        </div>
+                      );
+                    }
+
+                    if (part.type === "text") {
+                      if (!part.text) return null;
+
+                      if (isUser) {
+                        return (
+                          <div key={key} className="flex justify-end">
+                            <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-kumo-contrast text-kumo-inverse leading-relaxed">
+                              {part.text}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={key} className="flex justify-start">
+                          <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-kumo-base text-kumo-default leading-relaxed">
+                            <Streamdown
+                              className="sd-theme rounded-2xl rounded-bl-md p-3"
+                              plugins={{ code }}
+                              controls={false}
+                              isAnimating={isLastAssistant && isStreaming}
+                            >
+                              {sanitizeAssistantText(part.text)}
+                            </Streamdown>
                           </div>
                         </div>
                       );
                     }
 
-                    return (
-                      <div key={key} className="flex justify-start">
-                        <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-kumo-base text-kumo-default leading-relaxed">
-                          <Streamdown
-                            className="sd-theme rounded-2xl rounded-bl-md p-3"
-                            plugins={{ code }}
-                            controls={false}
-                            isAnimating={isLastAssistant && isStreaming}
-                          >
-                            {sanitizeAssistantText(part.text)}
-                          </Streamdown>
-                        </div>
-                      </div>
-                    );
-                  }
+                    return null;
+                  })}
+                </div>
+              );
+            })}
 
-                  return null;
-                })}
-              </div>
-            );
-          })}
-
-          <div ref={messagesEndRef} />
-        </div>
+            <div ref={messagesEndRef} />
+          </div>
           <CasePanel
             caseFile={caseFile}
             steps={caseSteps}

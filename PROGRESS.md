@@ -1,5 +1,16 @@
 # stepfix — build progress
 
+## DEV challenge work orders (2026-10-04)
+
+### Amendment 1 — Pre-existing baseline repairs
+
+- Restored the `workers-ai:glm-4.7-flash` registry entry to `@cf/zai-org/glm-4.7-flash` and added its published neuron rates so reservations enforce the account budget.
+- Applied the repository formatter and verified the broad diff is formatting-only outside the registry, WebSocket typing, and dead mock declarations described here.
+- Narrowed the `ws` message payload from `unknown` across its supported raw data shapes before parsing it.
+- The first fully formatted check exposed two additional pre-existing lint errors that Amendment 1 could not see earlier: unused `lower` and `scriptId` declarations in `src/server/llm/mock.ts`. Removed those declarations and the now-unused `pickScript` helper.
+- `npm test`: `Test Files 16 passed (16)`; `Tests 421 passed (421)`.
+- `npm run check`: `All matched files use the correct format.`; `Finished in 1117ms on 122 files using 8 threads.`; lint and TypeScript passed with no errors.
+
 ## Current milestone
 
 v2 WO-1 through WO-12 complete (2026-09-13)

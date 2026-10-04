@@ -20,12 +20,14 @@ function extractLastUserText(prompt: unknown): string {
 }
 
 function isOffTopic(text: string): boolean {
-  const off = /billing|refund|payment|order|cancel subscription|account|password reset|login|email|phone number|address|shipping|delivery|return policy|warranty|invoice|receipt|charge|money back/i;
+  const off =
+    /billing|refund|payment|order|cancel subscription|account|password reset|login|email|phone number|address|shipping|delivery|return policy|warranty|invoice|receipt|charge|money back/i;
   return off.test(text);
 }
 
 function isSupported(text: string): boolean {
-  const supported = /bluetooth|wifi|wi-fi|internet|network|disk space|df|command|terminal|path|install|npm|python|node|git|usb|audio|sound|microphone|camera|display|monitor|resolution|package|apt|update|upgrade|service|systemd/i;
+  const supported =
+    /bluetooth|wifi|wi-fi|internet|network|disk space|df|command|terminal|path|install|npm|python|node|git|usb|audio|sound|microphone|camera|display|monitor|resolution|package|apt|update|upgrade|service|systemd/i;
   return supported.test(text);
 }
 
@@ -38,21 +40,13 @@ function detectOS(text: string): string {
 function detectCategory(text: string): string {
   if (/bluetooth|bt|headphone|earbud/i.test(text)) return "bluetooth";
   if (/wifi|wi-fi|internet|network|dns|ping/i.test(text)) return "wifi";
-  if (/disk|space|df|install|npm|python|node|git|path|command|terminal|package|apt/i.test(text))
+  if (
+    /disk|space|df|install|npm|python|node|git|path|command|terminal|package|apt/i.test(
+      text
+    )
+  )
     return "dev_cli";
   return "other";
-}
-
-function pickScript(text: string, os: string): string {
-  if (/disk|space|df/i.test(text)) return "common.dev.disk_space";
-  if (/bluetooth|bt|headphone/i.test(text))
-    return os === "windows11" ? "win.bt.get_state" : "linux.bt.rfkill_list";
-  if (/wifi|network|internet/i.test(text))
-    return os === "windows11" ? "win.wifi.get_state" : "linux.wifi.iwconfig";
-  if (/npm|node|path|command not found/i.test(text))
-    return "common.dev.node_version";
-  if (/python|pip/i.test(text)) return "common.dev.python_version";
-  return "common.dev.disk_space";
 }
 
 function createStreamResult(
@@ -96,7 +90,12 @@ function createStreamResult(
       ? { unified: "tool-calls", raw: "tool-calls" }
       : { unified: "stop", raw: "stop" },
     usage: {
-      inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+      inputTokens: {
+        total: 10,
+        noCache: 10,
+        cacheRead: undefined,
+        cacheWrite: undefined
+      },
       outputTokens: { total: 5, text: 5, reasoning: undefined }
     }
   });
@@ -122,12 +121,14 @@ export function createMockModel(options?: {
     doStream: (opts: { prompt?: unknown }) => {
       if (options?.toolCall) {
         return Promise.resolve(
-          createStreamResult(options.cannedText ?? "Processing.", options.toolCall)
+          createStreamResult(
+            options.cannedText ?? "Processing.",
+            options.toolCall
+          )
         );
       }
 
       const userText = extractLastUserText(opts?.prompt);
-      const lower = userText.toLowerCase();
 
       if (isOffTopic(userText)) {
         return Promise.resolve(
@@ -165,7 +166,6 @@ export function createMockModel(options?: {
 
       const os = detectOS(userText);
       const category = detectCategory(userText);
-      const scriptId = pickScript(userText, os);
 
       const hasCaseInfo = /ubuntu|windows|linux/i.test(userText);
 

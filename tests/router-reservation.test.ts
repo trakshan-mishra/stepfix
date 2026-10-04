@@ -139,11 +139,17 @@ function makeMockReservation() {
     }),
     dispatch: vi.fn(async (leaseId: string): Promise<DispatchOutcome> => {
       calls.push("dispatch");
-      return { ok: true, lease: { ...mockLease, leaseId, status: "dispatched" } };
+      return {
+        ok: true,
+        lease: { ...mockLease, leaseId, status: "dispatched" }
+      };
     }),
     reconcile: vi.fn(async (leaseId: string): Promise<ReconcileOutcome> => {
       calls.push("reconcile");
-      return { ok: true, lease: { ...mockLease, leaseId, status: "reconciled" } };
+      return {
+        ok: true,
+        lease: { ...mockLease, leaseId, status: "reconciled" }
+      };
     })
   };
 }

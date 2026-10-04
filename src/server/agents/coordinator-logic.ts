@@ -201,23 +201,48 @@ export function computeWindow(
   now: number
 ): WindowId {
   if (kind === "concurrency") {
-    return { kind, start: 0, end: Infinity, providerResetId: getProviderResetId(provider) };
+    return {
+      kind,
+      start: 0,
+      end: Infinity,
+      providerResetId: getProviderResetId(provider)
+    };
   }
   if (kind === "minute") {
     const start = Math.floor(now / 60_000) * 60_000;
-    return { kind, start, end: start + 60_000, providerResetId: getProviderResetId(provider) };
+    return {
+      kind,
+      start,
+      end: start + 60_000,
+      providerResetId: getProviderResetId(provider)
+    };
   }
   if (kind === "hour") {
     const start = Math.floor(now / 3_600_000) * 3_600_000;
-    return { kind, start, end: start + 3_600_000, providerResetId: getProviderResetId(provider) };
+    return {
+      kind,
+      start,
+      end: start + 3_600_000,
+      providerResetId: getProviderResetId(provider)
+    };
   }
   const resetId = getProviderResetId(provider);
   if (provider === "gemini") {
     const start = getPacificMidnight(now);
-    return { kind: "day", start, end: start + 86_400_000, providerResetId: resetId };
+    return {
+      kind: "day",
+      start,
+      end: start + 86_400_000,
+      providerResetId: resetId
+    };
   }
   const start = getUtcMidnight(now);
-  return { kind: "day", start, end: start + 86_400_000, providerResetId: resetId };
+  return {
+    kind: "day",
+    start,
+    end: start + 86_400_000,
+    providerResetId: resetId
+  };
 }
 
 function getActualAmount(dimension: Dimension, usage: Usage): number {
@@ -229,7 +254,10 @@ function getActualAmount(dimension: Dimension, usage: Usage): number {
     case "outputTokens":
       return usage.outputTokens ?? 0;
     case "totalTokens":
-      return usage.totalTokens ?? (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+      return (
+        usage.totalTokens ??
+        (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
+      );
     case "neurons":
       return usage.neurons ?? 0;
     case "audioSeconds":
@@ -735,7 +763,11 @@ export class CoordinatorLogic {
 
     for (const entry of req.entries) {
       const qk = quotaKeyToString(entry.quotaKey);
-      if (this.data.killSwitches.disabledProviders.includes(entry.quotaKey.provider)) {
+      if (
+        this.data.killSwitches.disabledProviders.includes(
+          entry.quotaKey.provider
+        )
+      ) {
         return { ok: false, reason: "model_disabled", deniedEntry: entry };
       }
       const wcKey = windowCounterKey(
@@ -793,10 +825,7 @@ export class CoordinatorLogic {
     return { ok: true, lease };
   }
 
-  dispatch(
-    leaseId: string,
-    now: number = Date.now()
-  ): DispatchOutcome {
+  dispatch(leaseId: string, now: number = Date.now()): DispatchOutcome {
     const lease = this.data.ledger.leases.get(leaseId);
     if (!lease) return { ok: false, reason: "not_found" };
     if (lease.status === "dispatched" || lease.status === "reconciled") {
@@ -831,7 +860,8 @@ export class CoordinatorLogic {
   ): ReconcileOutcome {
     const lease = this.data.ledger.leases.get(leaseId);
     if (!lease) return { ok: false, reason: "not_found" };
-    if (lease.status !== "dispatched") return { ok: false, reason: "not_dispatched" };
+    if (lease.status !== "dispatched")
+      return { ok: false, reason: "not_dispatched" };
 
     lease.actualUsage = actualUsage;
     lease.status = "reconciled";

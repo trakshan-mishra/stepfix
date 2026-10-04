@@ -1,4 +1,8 @@
-import { createCoordinatorData, CoordinatorLogic, HARD_LIMITS } from "../src/server/agents/coordinator-logic";
+import {
+  createCoordinatorData,
+  CoordinatorLogic,
+  HARD_LIMITS
+} from "../src/server/agents/coordinator-logic";
 
 export interface LoadResult {
   totalSessions: number;
@@ -89,7 +93,12 @@ export function runReservationLoadTest(
     project: "default",
     quotaGroup: "groq-org-text"
   };
-  const w = { kind: "day" as const, start: 0, end: 86400000, providerResetId: "test" };
+  const w = {
+    kind: "day" as const,
+    start: 0,
+    end: 86400000,
+    providerResetId: "test"
+  };
   const limits: Record<string, number> = {
     "groq:default:default:groq-org-text:day:requests": limit
   };
@@ -104,7 +113,9 @@ export function runReservationLoadTest(
         attempt: 1,
         configVersion: "v1",
         idempotencyKey: `ik-${i}`,
-        entries: [{ quotaKey: qk, window: w, dimension: "requests", amount: 1 }],
+        entries: [
+          { quotaKey: qk, window: w, dimension: "requests", amount: 1 }
+        ],
         estimate: { inputTokens: 100, maxOutputTokens: 50 }
       },
       limits

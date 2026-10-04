@@ -282,7 +282,14 @@ describe("tool: handoff_to_technician", () => {
         category: "bluetooth",
         symptom: "Bluetooth stopped",
         errorText: "No adapter",
-        facts: [{ key: "adapter", value: "USB dongle", source: "user", at: Date.now() }]
+        facts: [
+          {
+            key: "adapter",
+            value: "USB dongle",
+            source: "user",
+            at: Date.now()
+          }
+        ]
       })
     });
     const tools = buildTools(ctx);
@@ -557,12 +564,7 @@ describe("buildSystemPrompt placeholder wiring", () => {
   });
 
   it("support prompt loads from markdown file", () => {
-    const prompt = buildSystemPrompt(
-      "support",
-      makeCaseFile(),
-      [],
-      ""
-    );
+    const prompt = buildSystemPrompt("support", makeCaseFile(), [], "");
     expect(prompt).toContain("Support agent");
     expect(prompt).toContain("update_case");
   });

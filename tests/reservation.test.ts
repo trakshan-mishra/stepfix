@@ -14,7 +14,14 @@ function makeQuotaKey(provider: string, quotaGroup: string): QuotaKey {
 
 function makeReserveRequest(
   idempotencyKey: string,
-  entries: { quotaKey: QuotaKey; dimension: string; amount: number; windowKind: string; windowStart: number; windowEnd: number }[],
+  entries: {
+    quotaKey: QuotaKey;
+    dimension: string;
+    amount: number;
+    windowKind: string;
+    windowStart: number;
+    windowEnd: number;
+  }[],
   estimate?: { inputTokens: number; maxOutputTokens: number }
 ): ReserveRequest {
   return {
@@ -45,7 +52,14 @@ describe("reservation lifecycle", () => {
     const qk = makeQuotaKey("groq", "groq-org-text");
     const w = computeWindow("groq", "day", 1700000000000);
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 1, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 1,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const limits: Record<string, number> = {
       "groq:default:default:groq-org-text:day:requests": 10
@@ -73,12 +87,26 @@ describe("reservation lifecycle", () => {
       "groq:default:default:groq-org-text:day:requests": 5
     };
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 5, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 5,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     expect(c.reserve(req, limits).ok).toBe(true);
 
     const req2 = makeReserveRequest("idem-2", [
-      { quotaKey: qk, dimension: "requests", amount: 1, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 1,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result2 = c.reserve(req2, limits);
     expect(result2.ok).toBe(false);
@@ -93,10 +121,24 @@ describe("reservation lifecycle", () => {
       "groq:default:default:groq-org-text:minute:requests": 1
     };
     const req1 = makeReserveRequest("idem-a", [
-      { quotaKey: qk, dimension: "requests", amount: 1, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 1,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const req2 = makeReserveRequest("idem-b", [
-      { quotaKey: qk, dimension: "requests", amount: 1, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 1,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const r1 = c.reserve(req1, limits);
     const r2 = c.reserve(req2, limits);
@@ -110,7 +152,14 @@ describe("reservation lifecycle", () => {
     const w = computeWindow("groq", "day", 1700000000000);
     const limits: Record<string, number> = {};
     const req = makeReserveRequest("idem-same", [
-      { quotaKey: qk, dimension: "requests", amount: 1, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 1,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const r1 = c.reserve(req, limits);
     const r2 = c.reserve(req, limits);
@@ -125,7 +174,14 @@ describe("reservation lifecycle", () => {
     const w = computeWindow("groq", "day", 1700000000000);
     const limits: Record<string, number> = {};
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 3, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 3,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, limits);
     if (!result.ok) throw new Error("reserve failed");
@@ -151,7 +207,14 @@ describe("reservation lifecycle", () => {
     const w = computeWindow("groq", "day", 1700000000000);
     const limits: Record<string, number> = {};
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 3, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 3,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, limits);
     if (!result.ok) throw new Error("reserve failed");
@@ -187,7 +250,14 @@ describe("reservation lifecycle", () => {
     const w = computeWindow("groq", "day", 1700000000000);
     const limits: Record<string, number> = {};
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "totalTokens", amount: 200, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "totalTokens",
+        amount: 200,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, limits);
     if (!result.ok) throw new Error("reserve failed");
@@ -214,7 +284,14 @@ describe("reservation lifecycle", () => {
     const w = computeWindow("groq", "day", 1700000000000);
     const limits: Record<string, number> = {};
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "totalTokens", amount: 100, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "totalTokens",
+        amount: 100,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, limits);
     if (!result.ok) throw new Error("reserve failed");
@@ -236,7 +313,14 @@ describe("reservation lifecycle", () => {
     const w = computeWindow("groq", "day", 1700000000000);
     const limits: Record<string, number> = {};
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 5, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 5,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, limits);
     if (!result.ok) throw new Error("reserve failed");
@@ -260,7 +344,14 @@ describe("reservation lifecycle", () => {
     const w = computeWindow("groq", "day", 1700000000000);
     const limits: Record<string, number> = {};
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 3, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 3,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, limits);
     if (!result.ok) throw new Error("reserve failed");
@@ -276,7 +367,14 @@ describe("reservation lifecycle", () => {
     const w = computeWindow("groq", "day", 1700000000000);
     const limits: Record<string, number> = {};
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 3, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 3,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, limits);
     if (!result.ok) throw new Error("reserve failed");
@@ -301,7 +399,14 @@ describe("reservation lifecycle", () => {
     const qk = makeQuotaKey("groq", "groq-org-text");
     const w = computeWindow("groq", "day", 1700000000000);
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 1, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 1,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, {});
     expect(result.ok).toBe(false);
@@ -314,7 +419,14 @@ describe("reservation lifecycle", () => {
     const qk = makeQuotaKey("groq", "groq-org-text");
     const w = computeWindow("groq", "day", 1700000000000);
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 1, windowKind: w.kind, windowStart: w.start, windowEnd: w.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 1,
+        windowKind: w.kind,
+        windowStart: w.start,
+        windowEnd: w.end
+      }
     ]);
     const result = c.reserve(req, {});
     expect(result.ok).toBe(false);
@@ -386,9 +498,21 @@ describe("reservation ledger data", () => {
   it("sweepExpiredWindows removes expired windows", () => {
     const c = new CoordinatorLogic(createCoordinatorData());
     const qk = makeQuotaKey("groq", "groq-org-text");
-    const pastW = { kind: "day" as const, start: 0, end: 1000, providerResetId: "test" };
+    const pastW = {
+      kind: "day" as const,
+      start: 0,
+      end: 1000,
+      providerResetId: "test"
+    };
     const req = makeReserveRequest("idem-1", [
-      { quotaKey: qk, dimension: "requests", amount: 1, windowKind: pastW.kind, windowStart: pastW.start, windowEnd: pastW.end }
+      {
+        quotaKey: qk,
+        dimension: "requests",
+        amount: 1,
+        windowKind: pastW.kind,
+        windowStart: pastW.start,
+        windowEnd: pastW.end
+      }
     ]);
     c.reserve(req, {});
     const swept = c.sweepExpiredWindows(2000);

@@ -18,9 +18,7 @@ describe("FrameManager", () => {
     fm.startCloudFrame(1000);
     fm.completeCloudFrame(1500);
     expect(fm.canSendCloudFrame(2000)).toBe(false);
-    expect(fm.canSendCloudFrame(1000 + MIN_CLOUD_FRAME_INTERVAL_MS)).toBe(
-      true
-    );
+    expect(fm.canSendCloudFrame(1000 + MIN_CLOUD_FRAME_INTERVAL_MS)).toBe(true);
   });
 
   it("enforces one in-flight at a time", () => {

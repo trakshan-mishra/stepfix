@@ -37,7 +37,9 @@ async function main() {
 
   if (phase === "reservation" || phase === "all") {
     const result = runReservationLoadTest(100, 30);
-    reports.push(formatReport(result, "Reservation load (100 requests, limit 30)"));
+    reports.push(
+      formatReport(result, "Reservation load (100 requests, limit 30)")
+    );
     reports.push("");
     console.log(
       `  reservations: granted=${result.granted} denied=${result.denied} p95=${result.p95LatencyMs.toFixed(2)}ms`

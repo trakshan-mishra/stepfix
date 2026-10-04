@@ -164,7 +164,10 @@ export async function runSimulation(
 
   if (scenario.expect.no_commands_in_text) {
     for (const entry of result.transcript) {
-      if (entry.role === "assistant" && /\b(sudo|rm |chmod|reg add)\b/i.test(entry.text)) {
+      if (
+        entry.role === "assistant" &&
+        /\b(sudo|rm |chmod|reg add)\b/i.test(entry.text)
+      ) {
         result.violations++;
         result.failures.push("Command found in assistant text");
       }

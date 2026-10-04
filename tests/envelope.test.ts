@@ -38,17 +38,11 @@ describe("session envelope admission", () => {
     const c = new CoordinatorLogic(createCoordinatorData(), {
       maxActive: 10
     });
-    const result = c.admitWithEnvelope(
-      makeAdmissionReq(),
-      "ip1",
-      "s1"
-    );
+    const result = c.admitWithEnvelope(makeAdmissionReq(), "ip1", "s1");
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.sessionId).toBe("s1");
-      expect(result.envelope.remaining.lightCalls).toBe(
-        HARD_LIMITS.lightCalls
-      );
+      expect(result.envelope.remaining.lightCalls).toBe(HARD_LIMITS.lightCalls);
       expect(result.voiceAdmitted).toBe(true);
     }
   });
@@ -87,11 +81,7 @@ describe("session envelope admission", () => {
       maxActive: 10
     });
     for (let i = 0; i < 7; i++) {
-      const r = c.admitWithEnvelope(
-        makeAdmissionReq(),
-        `ip${i}`,
-        `s${i}`
-      );
+      const r = c.admitWithEnvelope(makeAdmissionReq(), `ip${i}`, `s${i}`);
       expect(r.ok).toBe(true);
     }
     const result = c.admitWithEnvelope(
@@ -155,12 +145,7 @@ describe("session envelope admission", () => {
       maxActive: 10
     });
     const now = Date.now();
-    c.admitWithEnvelope(
-      makeAdmissionReq(),
-      "ip1",
-      "s1",
-      now
-    );
+    c.admitWithEnvelope(makeAdmissionReq(), "ip1", "s1", now);
 
     const future = now + (HARD_LIMITS.wallSeconds + 10) * 1000;
     const r = c.consumeEnvelope("s1", { lightCalls: 1 }, future);
@@ -177,11 +162,7 @@ describe("session envelope admission", () => {
     for (let i = 0; i < 3; i++) {
       c.admitWithEnvelope(makeAdmissionReq(), "ip1", `s${i}`);
     }
-    const result = c.admitWithEnvelope(
-      makeAdmissionReq(),
-      "ip1",
-      "s-overflow"
-    );
+    const result = c.admitWithEnvelope(makeAdmissionReq(), "ip1", "s-overflow");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("per_ip");
   });

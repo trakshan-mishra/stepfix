@@ -255,8 +255,7 @@ export async function streamTurn(
         actualUsage = {
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,
-          totalTokens:
-            (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
+          totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
         };
       } catch {
         actualUsage = {

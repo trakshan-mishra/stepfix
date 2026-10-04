@@ -25,9 +25,7 @@ export function captureSnapshot(
   };
 }
 
-export function restoreFromSnapshot(
-  snapshot: DegradedSnapshot
-): {
+export function restoreFromSnapshot(snapshot: DegradedSnapshot): {
   phase: Phase;
   caseFile: CaseFile;
   steps: Step[];

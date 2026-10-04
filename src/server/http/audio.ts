@@ -89,10 +89,7 @@ export async function handleAudioRequest(
       confidence: 0.9
     } satisfies AsrResponse);
   } catch (e) {
-    return json(
-      { error: "ASR request failed", detail: String(e) },
-      502
-    );
+    return json({ error: "ASR request failed", detail: String(e) }, 502);
   }
 }
 
