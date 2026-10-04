@@ -27,6 +27,14 @@
 - `npm test`: `Test Files 16 passed (16)`; `Tests 425 passed (425)`.
 - `npm run check`: `All matched files use the correct format.`; `Finished in 968ms on 122 files using 8 threads.`; lint and TypeScript passed with no errors.
 
+### Amendment 2 — Groq primary provider
+
+- Confirmed `.dev.vars` contains a non-empty `GROQ_API_KEY` without reading or changing its value.
+- Enabled only Groq `gpt-oss-20b` and `gpt-oss-120b`, with Workers AI GLM-4.7-flash as the final support and technician fallback. Gemini and Z.ai remain disabled.
+- Added registry coverage for the actionable support order: Groq `gpt-oss-20b`, then Workers AI GLM-4.7-flash.
+- `npm test`: `Test Files 16 passed (16)`; `Tests 426 passed (426)`.
+- `npm run check`: `All matched files use the correct format.`; `Finished in 1044ms on 122 files using 8 threads.`; lint and TypeScript passed with no errors.
+
 ## Current milestone
 
 v2 WO-1 through WO-12 complete (2026-09-13)

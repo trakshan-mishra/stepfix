@@ -40,17 +40,11 @@ export interface ModelEntry {
 }
 
 export const ROLE_CHAINS: Record<Role, string[]> = {
-  support: [
-    "groq:gpt-oss-20b",
-    "gemini:flash-lite",
-    "workers-ai:glm-4.7-flash",
-    "zai:glm-4.7-flash"
-  ],
+  support: ["groq:gpt-oss-20b", "workers-ai:glm-4.7-flash"],
   technician: [
-    "gemini:flash",
     "groq:gpt-oss-120b",
-    "workers-ai:gpt-oss-120b",
-    "zai:glm-4.7-flash"
+    "groq:gpt-oss-20b",
+    "workers-ai:glm-4.7-flash"
   ],
   vision: [
     "groq:qwen3.8-27b",
@@ -91,10 +85,10 @@ export function buildRegistry(
       quotaGroup: "groq-org-text",
       limits: { rpm: 30, tpm: 8000, rpd: 1000, tpd: 200000 },
       effectiveLimits: null,
-      accountVerified: false,
-      runtimeEnabled: false,
-      freeEligibilityVerified: false,
-      privacyConfigVerified: false,
+      accountVerified: true,
+      runtimeEnabled: true,
+      freeEligibilityVerified: true,
+      privacyConfigVerified: true,
       trainsOnInputs: false,
       ttftMs: 5000,
       paid: false
@@ -108,10 +102,10 @@ export function buildRegistry(
       quotaGroup: "groq-org-text",
       limits: { rpm: 30, tpm: 8000, rpd: 1000, tpd: 200000 },
       effectiveLimits: null,
-      accountVerified: false,
-      runtimeEnabled: false,
-      freeEligibilityVerified: false,
-      privacyConfigVerified: false,
+      accountVerified: true,
+      runtimeEnabled: true,
+      freeEligibilityVerified: true,
+      privacyConfigVerified: true,
       trainsOnInputs: false,
       ttftMs: 8000,
       paid: false

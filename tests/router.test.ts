@@ -165,10 +165,9 @@ describe("privacy mode filtering", () => {
     }
   });
 
-  it("keeps gemini and zai when privacy mode is off", () => {
+  it("keeps the support chain limited to enabled open-weight providers", () => {
     const chain = getRoleChain("support", false);
-    expect(chain.some((k) => k.startsWith("gemini:"))).toBe(true);
-    expect(chain.some((k) => k.startsWith("zai:"))).toBe(true);
+    expect(chain).toEqual(["groq:gpt-oss-20b", "workers-ai:glm-4.7-flash"]);
   });
 
   it("removes gemini from technician chain in privacy mode", () => {
@@ -197,21 +196,27 @@ describe("model registry", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("all entries default to disabled (unverified) except activated CF GLM", () => {
+  it("only the Groq text models and CF GLM are activated", () => {
     const registry = buildRegistry(env);
+    const activated = new Set([
+      "groq:gpt-oss-20b",
+      "groq:gpt-oss-120b",
+      "workers-ai:glm-4.7-flash"
+    ]);
     for (const entry of registry) {
-      if (entry.key === "workers-ai:glm-4.7-flash") {
-        expect(isActionable(entry)).toBe(true);
-      } else {
-        expect(isActionable(entry)).toBe(false);
-      }
+      expect(isActionable(entry)).toBe(activated.has(entry.key));
     }
   });
 
   it("every unverified entry resolves to disabled", () => {
     const registry = buildRegistry(env);
+    const activated = new Set([
+      "groq:gpt-oss-20b",
+      "groq:gpt-oss-120b",
+      "workers-ai:glm-4.7-flash"
+    ]);
     for (const entry of registry) {
-      if (entry.key === "workers-ai:glm-4.7-flash") {
+      if (activated.has(entry.key)) {
         expect(resolveEntry(entry.key, env)).toBeDefined();
       } else {
         expect(resolveEntry(entry.key, env)).toBeUndefined();
@@ -219,10 +224,15 @@ describe("model registry", () => {
     }
   });
 
-  it("a key alone does not activate a model (except user-activated CF GLM)", () => {
+  it("a key alone does not activate an unverified model", () => {
     const registry = buildRegistry(env);
+    const activated = new Set([
+      "groq:gpt-oss-20b",
+      "groq:gpt-oss-120b",
+      "workers-ai:glm-4.7-flash"
+    ]);
     for (const entry of registry) {
-      if (entry.key === "workers-ai:glm-4.7-flash") continue;
+      if (activated.has(entry.key)) continue;
       expect(entry.runtimeEnabled).toBe(false);
       expect(entry.accountVerified).toBe(false);
       expect(entry.freeEligibilityVerified).toBe(false);
@@ -292,10 +302,17 @@ describe("model registry", () => {
     expect(entry.limits.otpm).toBeUndefined();
   });
 
-  it("getActionableCandidates returns only activated CF GLM", () => {
+  it("returns the activated support candidates in chain order", () => {
     const candidates = getActionableCandidates("support", false, env);
-    expect(candidates.length).toBe(1);
-    expect(candidates[0].key).toBe("workers-ai:glm-4.7-flash");
+    expect(candidates.map((candidate) => candidate.key)).toEqual([
+      "groq:gpt-oss-20b",
+      "workers-ai:glm-4.7-flash"
+    ]);
+  });
+
+  it("puts Groq gpt-oss-20b first in the actionable support chain", () => {
+    const candidates = getActionableCandidates("support", false, env);
+    expect(candidates[0]?.key).toBe("groq:gpt-oss-20b");
   });
 
   it("gemini models use env var model IDs", () => {
