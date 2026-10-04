@@ -19,6 +19,14 @@
 - `npm test`: `Test Files 16 passed (16)`; `Tests 425 passed (425)`.
 - `npm run check`: `All matched files use the correct format.`; `Finished in 1193ms on 122 files using 8 threads.`; lint and TypeScript passed with no errors.
 
+### WO-B — Tech-support chat cleanup
+
+- Replaced the four starter suggestions with Wi-Fi and Bluetooth support prompts, changed the header label to “Tech support”, and removed the client-side MCP state, button, and panel.
+- Client grep for `weather`, `timezone`, `Remind me`, `Calculate 5000`, `AI Chat`, and `MCP`: no matches.
+- `npm run test:e2e`: failed because the repository has no Playwright configuration or Playwright tests; Playwright collected the Vitest files and ended with `Error: No tests found`. The generated `test-results/.last-run.json` artifact was removed. No application failure was reported by this command.
+- `npm test`: `Test Files 16 passed (16)`; `Tests 425 passed (425)`.
+- `npm run check`: `All matched files use the correct format.`; `Finished in 968ms on 122 files using 8 threads.`; lint and TypeScript passed with no errors.
+
 ## Current milestone
 
 v2 WO-1 through WO-12 complete (2026-09-13)
