@@ -1,13 +1,19 @@
 {
   "version": 1,
-  "compiledAt": "2026-09-13T10:41:50Z",
+  "compiledAt": "2026-10-04T14:15:48Z",
   "entries": [
     {
       "id": "common.dev.node_version",
       "version": 1,
       "title": "Check your Node.js version",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other", "windows11", "windows10"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other",
+        "windows11",
+        "windows10"
+      ],
       "shell": "any",
       "category": "dev_cli",
       "risk": "read_only",
@@ -48,7 +54,13 @@
       "version": 1,
       "title": "Find where npm installs global tools",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other", "windows11", "windows10"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other",
+        "windows11",
+        "windows10"
+      ],
       "shell": "any",
       "category": "dev_cli",
       "risk": "read_only",
@@ -109,7 +121,13 @@
       "version": 1,
       "title": "Try the tool again in a new terminal",
       "kind": "manual",
-      "os": ["ubuntu", "debian", "linux_other", "windows11", "windows10"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other",
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "dev_cli",
       "risk": "read_only",
@@ -145,7 +163,13 @@
       "version": 1,
       "title": "Restart your computer",
       "kind": "manual",
-      "os": ["ubuntu", "debian", "linux_other", "windows11", "windows10"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other",
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "system",
       "risk": "disruptive",
@@ -175,7 +199,13 @@
       "version": 1,
       "title": "Restart your router",
       "kind": "manual",
-      "os": ["ubuntu", "debian", "linux_other", "windows11", "windows10"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other",
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "wifi",
       "risk": "disruptive",
@@ -212,7 +242,11 @@
       "version": 1,
       "title": "Check if Bluetooth is blocked",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "read_only",
@@ -279,7 +313,11 @@
       "version": 1,
       "title": "Switch Bluetooth back on (remove the software block)",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -320,7 +358,11 @@
       "version": 1,
       "title": "Check the Bluetooth service",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "read_only",
@@ -387,7 +429,11 @@
       "version": 1,
       "title": "Start the Bluetooth service and keep it on at boot",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -428,7 +474,11 @@
       "version": 1,
       "title": "Restart the Bluetooth service",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "restart",
@@ -459,7 +509,11 @@
       "version": 1,
       "title": "Check the Bluetooth adapter is powered on",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "read_only",
@@ -532,7 +586,11 @@
       "version": 1,
       "title": "Power on the Bluetooth adapter",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -573,7 +631,11 @@
       "version": 1,
       "title": "Look for the Bluetooth hardware",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "read_only",
@@ -608,7 +670,11 @@
       "version": 1,
       "title": "Check the system log for Bluetooth driver errors",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "read_only",
@@ -661,7 +727,11 @@
       "version": 1,
       "title": "Read the Bluetooth service log",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "read_only",
@@ -692,7 +762,11 @@
       "version": 1,
       "title": "Reload the Bluetooth USB driver",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "disruptive",
@@ -734,7 +808,10 @@
       "version": 1,
       "title": "Check that BlueZ (the Bluetooth software) is installed",
       "kind": "command",
-      "os": ["ubuntu", "debian"],
+      "os": [
+        "ubuntu",
+        "debian"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "read_only",
@@ -775,7 +852,10 @@
       "version": 1,
       "title": "Install BlueZ from Ubuntu's official packages",
       "kind": "command",
-      "os": ["ubuntu", "debian"],
+      "os": [
+        "ubuntu",
+        "debian"
+      ],
       "shell": "bash",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -806,7 +886,11 @@
       "version": 1,
       "title": "Turn off the hardware switch for wireless",
       "kind": "manual",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "gui",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -842,7 +926,11 @@
       "version": 1,
       "title": "Try connecting your Bluetooth device now",
       "kind": "manual",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "gui",
       "category": "bluetooth",
       "risk": "read_only",
@@ -878,7 +966,11 @@
       "version": 1,
       "title": "Find where a command-line tool is installed",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "dev_cli",
       "risk": "read_only",
@@ -936,7 +1028,11 @@
       "version": 1,
       "title": "List the folders your shell searches (PATH)",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "dev_cli",
       "risk": "read_only",
@@ -967,7 +1063,11 @@
       "version": 1,
       "title": "Add npm's global tools folder to PATH",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "dev_cli",
       "risk": "safe_change",
@@ -982,7 +1082,10 @@
         "rc_file": {
           "type": "enum",
           "description": "Your shell's startup file (bash or zsh)",
-          "values": ["~/.bashrc", "~/.zshrc"]
+          "values": [
+            "~/.bashrc",
+            "~/.zshrc"
+          ]
         }
       },
       "when_to_use": "When npm's prefix is under $HOME and its bin folder is missing from PATH.",
@@ -1016,7 +1119,11 @@
       "version": 1,
       "title": "Show your Linux version",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "system",
       "risk": "read_only",
@@ -1053,7 +1160,11 @@
       "version": 1,
       "title": "Show your kernel version",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "system",
       "risk": "read_only",
@@ -1084,7 +1195,11 @@
       "version": 1,
       "title": "Check if Wi-Fi is switched on",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1141,7 +1256,11 @@
       "version": 1,
       "title": "Switch Wi-Fi on",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "safe_change",
@@ -1172,7 +1291,11 @@
       "version": 1,
       "title": "See the state of your Wi-Fi adapter",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1229,7 +1352,11 @@
       "version": 1,
       "title": "Check if Wi-Fi is blocked",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1276,7 +1403,11 @@
       "version": 1,
       "title": "Remove the software block on Wi-Fi",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "safe_change",
@@ -1307,7 +1438,11 @@
       "version": 1,
       "title": "Turn off the hardware switch for Wi-Fi",
       "kind": "manual",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "gui",
       "category": "wifi",
       "risk": "safe_change",
@@ -1343,7 +1478,11 @@
       "version": 1,
       "title": "Connect to your Wi-Fi network",
       "kind": "manual",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "gui",
       "category": "wifi",
       "risk": "read_only",
@@ -1379,7 +1518,11 @@
       "version": 1,
       "title": "Check your network addresses",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1420,7 +1563,11 @@
       "version": 1,
       "title": "Check the route to the internet",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1457,7 +1604,11 @@
       "version": 1,
       "title": "Test the internet connection by address",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1504,7 +1655,11 @@
       "version": 1,
       "title": "Test that website names resolve (DNS)",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1545,7 +1700,11 @@
       "version": 1,
       "title": "See which DNS servers you're using",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1576,7 +1735,11 @@
       "version": 1,
       "title": "Clear the DNS cache",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "safe_change",
@@ -1607,7 +1770,11 @@
       "version": 1,
       "title": "Test name lookup again",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "read_only",
@@ -1648,7 +1815,11 @@
       "version": 1,
       "title": "Restart NetworkManager",
       "kind": "command",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "bash",
       "category": "wifi",
       "risk": "restart",
@@ -1679,7 +1850,11 @@
       "version": 1,
       "title": "Try loading a website",
       "kind": "manual",
-      "os": ["ubuntu", "debian", "linux_other"],
+      "os": [
+        "ubuntu",
+        "debian",
+        "linux_other"
+      ],
       "shell": "gui",
       "category": "wifi",
       "risk": "read_only",
@@ -1714,7 +1889,10 @@
       "version": 1,
       "title": "List Bluetooth devices and their status",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "bluetooth",
       "risk": "read_only",
@@ -1775,7 +1953,10 @@
       "version": 1,
       "title": "Check the Bluetooth Support Service",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "bluetooth",
       "risk": "read_only",
@@ -1826,7 +2007,10 @@
       "version": 1,
       "title": "Allow the Bluetooth service to start",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -1861,7 +2045,10 @@
       "version": 1,
       "title": "Start the Bluetooth service",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -1902,7 +2089,10 @@
       "version": 1,
       "title": "Restart the Bluetooth service",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "bluetooth",
       "risk": "restart",
@@ -1933,7 +2123,10 @@
       "version": 1,
       "title": "Check Airplane mode and the Bluetooth toggle",
       "kind": "manual",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -1970,7 +2163,10 @@
       "version": 1,
       "title": "Look for a Bluetooth driver update",
       "kind": "manual",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "bluetooth",
       "risk": "safe_change",
@@ -2007,7 +2203,10 @@
       "version": 1,
       "title": "Try connecting your Bluetooth device now",
       "kind": "manual",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "bluetooth",
       "risk": "read_only",
@@ -2044,7 +2243,10 @@
       "version": 1,
       "title": "Find where a command-line tool is installed",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "dev_cli",
       "risk": "read_only",
@@ -2102,7 +2304,10 @@
       "version": 1,
       "title": "List the folders Windows searches (PATH)",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "dev_cli",
       "risk": "read_only",
@@ -2139,7 +2344,10 @@
       "version": 1,
       "title": "Add npm's folder to your PATH (Windows settings)",
       "kind": "manual",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "dev_cli",
       "risk": "safe_change",
@@ -2176,7 +2384,10 @@
       "version": 1,
       "title": "Show your Windows version",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "system",
       "risk": "read_only",
@@ -2211,7 +2422,10 @@
       "version": 1,
       "title": "Check your Wi-Fi connection details",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "wifi",
       "risk": "read_only",
@@ -2272,7 +2486,10 @@
       "version": 1,
       "title": "List network adapters",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "wifi",
       "risk": "read_only",
@@ -2313,7 +2530,10 @@
       "version": 1,
       "title": "Turn the Wi-Fi adapter back on",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "wifi",
       "risk": "safe_change",
@@ -2351,7 +2571,10 @@
       "version": 1,
       "title": "Connect to your Wi-Fi network",
       "kind": "manual",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "wifi",
       "risk": "read_only",
@@ -2388,7 +2611,10 @@
       "version": 1,
       "title": "Test the internet connection by address",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "wifi",
       "risk": "read_only",
@@ -2429,7 +2655,10 @@
       "version": 1,
       "title": "Test that website names resolve (DNS)",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "wifi",
       "risk": "read_only",
@@ -2470,7 +2699,10 @@
       "version": 1,
       "title": "Clear the DNS cache",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "wifi",
       "risk": "safe_change",
@@ -2505,7 +2737,10 @@
       "version": 1,
       "title": "Test name lookup again",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "wifi",
       "risk": "read_only",
@@ -2542,7 +2777,10 @@
       "version": 1,
       "title": "Restart the Wi-Fi adapter",
       "kind": "command",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "powershell",
       "category": "wifi",
       "risk": "disruptive",
@@ -2580,7 +2818,10 @@
       "version": 1,
       "title": "Try loading a website",
       "kind": "manual",
-      "os": ["windows11", "windows10"],
+      "os": [
+        "windows11",
+        "windows10"
+      ],
       "shell": "gui",
       "category": "wifi",
       "risk": "read_only",

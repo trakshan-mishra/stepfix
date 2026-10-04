@@ -35,6 +35,15 @@
 - `npm test`: `Test Files 16 passed (16)`; `Tests 426 passed (426)`.
 - `npm run check`: `All matched files use the correct format.`; `Finished in 1044ms on 122 files using 8 threads.`; lint and TypeScript passed with no errors.
 
+### Amendment 3 — Deterministic compiled library
+
+- Updated the library compiler to preserve the existing generated file and its `compiledAt` value when the version and entries are unchanged.
+- Excluded `src/generated/` from oxfmt and ignored Playwright’s `test-results/` and `playwright-report/` artifacts.
+- Regenerated `src/generated/library.json` once in the compiler’s native output format.
+- Ran `npm test` twice consecutively. Both runs reported `Test Files 16 passed (16)` and `Tests 426 passed (426)`; both compiler pre-steps reported `Unchanged src/generated/library.json`.
+- `git status --short` was identical before and after both test runs, so the tests created no new changes. The only untracked paths remained the pre-existing `STATUS.md` and `.dev.vars` editor swap file.
+- `npm run check`: `All matched files use the correct format.`; `Finished in 999ms on 121 files using 8 threads.`; lint and TypeScript passed with no errors.
+
 ## Current milestone
 
 v2 WO-1 through WO-12 complete (2026-09-13)

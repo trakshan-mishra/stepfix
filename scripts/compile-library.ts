@@ -99,10 +99,26 @@ const compiled: CompiledLibrary = {
 
 mkdirSync(outDir, { recursive: true });
 const outPath = new URL("library.json", outDir);
-writeFileSync(outPath, JSON.stringify(compiled, null, 2) + "\n");
 
 const draftCount = compiled.entries.filter((e) => e.draft).length;
+let unchanged = false;
+try {
+  const existing = JSON.parse(
+    readFileSync(outPath, "utf-8")
+  ) as Partial<CompiledLibrary>;
+  unchanged =
+    existing.version === compiled.version &&
+    JSON.stringify(existing.entries) === JSON.stringify(compiled.entries);
+} catch {
+  // Missing or invalid output is regenerated below.
+}
+
 console.log(
   `  Compiled ${compiled.entries.length} entries (${draftCount} drafts)`
 );
-console.log(`  Written to src/generated/library.json`);
+if (unchanged) {
+  console.log(`  Unchanged src/generated/library.json`);
+} else {
+  writeFileSync(outPath, JSON.stringify(compiled, null, 2) + "\n");
+  console.log(`  Written to src/generated/library.json`);
+}

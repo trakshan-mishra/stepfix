@@ -146,3 +146,7 @@ dist
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# Test artifacts
+test-results/
+playwright-report/
