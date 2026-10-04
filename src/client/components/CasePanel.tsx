@@ -35,7 +35,9 @@ export default function CasePanel({
             <dt className="text-gray-500">OS</dt>
             <dd className="text-gray-700 text-right">
               {caseFile.os}
-              {caseFile.osVersion ? " " + caseFile.osVersion : ""}
+              {caseFile.osVersion && caseFile.osVersion !== "unknown"
+                ? " " + caseFile.osVersion
+                : ""}
             </dd>
           </div>
         )}

@@ -170,7 +170,7 @@ function ToolPartView({
       const output = part.output as { ok?: boolean } | undefined;
       if (output?.ok) {
         return (
-          <HandoffBanner summary="Handing off to Technician for guided repair." />
+          <HandoffBanner summary="I have what I need. Each step below comes from the public script library." />
         );
       }
     }
