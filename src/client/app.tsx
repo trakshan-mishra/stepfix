@@ -8,13 +8,13 @@ import { redactCommands } from "../server/guardrails/command-scanner";
 import ScriptCard from "./components/ScriptCard";
 import CasePanel from "./components/CasePanel";
 import HandoffBanner from "./components/HandoffBanner";
+import ReportCard from "./components/ReportCard";
 import {
   Badge,
   Button,
   Empty,
   InputArea,
   Surface,
-  Switch,
   Text
 } from "@cloudflare/kumo";
 import { Toasty, useKumoToastManager } from "@cloudflare/kumo/components/toast";
@@ -33,7 +33,6 @@ import {
   XCircleIcon,
   BrainIcon,
   CaretDownIcon,
-  BugIcon,
   XIcon,
   PaperclipIcon,
   ImageIcon
@@ -120,7 +119,8 @@ function ToolIO({ label, value }: { label: string; value: unknown }) {
 function ToolPartView({
   part,
   addToolApprovalResponse,
-  onStepResult
+  onStepResult,
+  debug
 }: {
   part: UIMessage["parts"][number];
   addToolApprovalResponse: (response: {
@@ -132,6 +132,7 @@ function ToolPartView({
     status: "ran" | "worked" | "failed" | "cant_run",
     output?: string
   ) => void;
+  debug: boolean;
 }) {
   if (!isToolUIPart(part)) return null;
   const toolName = getToolName(part);
@@ -158,6 +159,17 @@ function ToolPartView({
       }
     }
 
+    if (toolName === "escalate_to_human") {
+      const output = part.output as
+        | { ok?: boolean; markdown?: string }
+        | undefined;
+      if (output?.ok && output.markdown) {
+        return <ReportCard markdown={output.markdown} />;
+      }
+    }
+
+    if (!debug) return null;
+
     return (
       <div className="flex justify-start">
         <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
@@ -174,6 +186,8 @@ function ToolPartView({
       </div>
     );
   }
+
+  if (!debug) return null;
 
   // Needs approval
   if ("approval" in part && part.state === "approval-requested") {
@@ -292,7 +306,8 @@ function ToolPartView({
 function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
   const [connected, setConnected] = useState(false);
   const [input, setInput] = useState("");
-  const [showDebug, setShowDebug] = useState(false);
+  const showDebug =
+    new URLSearchParams(window.location.search).get("debug") === "1";
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -532,15 +547,6 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                 {connected ? "Connected" : "Disconnected"}
               </Text>
             </div>
-            <div className="flex items-center gap-1.5">
-              <BugIcon size={14} className="text-kumo-inactive" />
-              <Switch
-                checked={showDebug}
-                onCheckedChange={setShowDebug}
-                size="sm"
-                aria-label="Toggle debug mode"
-              />
-            </div>
             <ThemeToggle />
             <Button
               variant="secondary"
@@ -569,11 +575,11 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                       "Bluetooth is greyed out on my Linux laptop",
                       "My laptop says it's connected to Wi-Fi but nothing loads"
                     ].map((prompt) => (
-                      <Button
+                      <button
                         key={prompt}
-                        variant="outline"
-                        size="sm"
+                        type="button"
                         disabled={isStreaming}
+                        className="rounded-lg border border-kumo-line bg-kumo-base px-3 py-1.5 text-sm text-kumo-default transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => {
                           sendMessage({
                             role: "user",
@@ -582,7 +588,7 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                         }}
                       >
                         {prompt}
-                      </Button>
+                      </button>
                     ))}
                   </div>
                 }
@@ -613,6 +619,7 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                           part={part}
                           addToolApprovalResponse={addToolApprovalResponse}
                           onStepResult={handleStepResult}
+                          debug={showDebug}
                         />
                       );
                     }

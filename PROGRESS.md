@@ -56,6 +56,15 @@
 - `npm test`: `Test Files 16 passed (16)`; `Tests 427 passed (427)`.
 - `npm run check`: `All matched files use the correct format.`; `Finished in 1064ms on 121 files using 8 threads.`; lint and TypeScript passed with no errors.
 
+### Amendment 4 — Demo-blocking UI fixes
+
+- Hid tool inputs, outputs, running states, and errors unless the URL contains `?debug=1`. The dedicated ScriptCard, HandoffBanner, and escalation ReportCard remain visible to users, and the Reasoning pill remains available.
+- Removed the debug toggle from the normal UI, so raw message and tool data is accessible only through `?debug=1`.
+- Changed the four empty-state suggestions to native `<button type="button">` controls with disabled and keyboard-focus styles.
+- The client has no DOM render-test setup (`jsdom`, `happy-dom`, or Testing Library), so this was checked manually in the live app as Amendment 4 permits. Without the query parameter, the existing `update_case`, `search_kb`, and rejected `recommend_step` cards disappeared while ScriptCards and the HandoffBanner remained. With `?debug=1`, the same raw cards and message JSON appeared. After clearing the disposable WO-C chat, all four suggestions appeared as accessibility-tree buttons; clicking the Wi-Fi suggestion inserted and submitted its text immediately.
+- `npm test`: `Test Files 16 passed (16)`; `Tests 427 passed (427)`.
+- `npm run check`: `All matched files use the correct format.`; `Finished in 1196ms on 121 files using 8 threads.`; lint and TypeScript passed with no errors.
+
 ## Current milestone
 
 v2 WO-1 through WO-12 complete (2026-09-13)

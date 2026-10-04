@@ -2,7 +2,7 @@ import { useState } from "react";
 
 interface ReportCardProps {
   markdown: string;
-  supportEmail: string;
+  supportEmail?: string;
 }
 
 export default function ReportCard({
@@ -28,7 +28,9 @@ export default function ReportCard({
     URL.revokeObjectURL(url);
   };
 
-  const mailtoHref = `mailto:${supportEmail}?subject=${encodeURIComponent("stepfix support case")}&body=${encodeURIComponent(markdown.slice(0, 2000))}`;
+  const mailtoHref = supportEmail
+    ? `mailto:${supportEmail}?subject=${encodeURIComponent("stepfix support case")}&body=${encodeURIComponent(markdown.slice(0, 2000))}`
+    : undefined;
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
@@ -53,12 +55,14 @@ export default function ReportCard({
         >
           Download .md
         </button>
-        <a
-          href={mailtoHref}
-          className="px-3 py-1.5 text-sm rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50"
-        >
-          Email support
-        </a>
+        {mailtoHref && (
+          <a
+            href={mailtoHref}
+            className="px-3 py-1.5 text-sm rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50"
+          >
+            Email support
+          </a>
+        )}
       </div>
     </div>
   );
