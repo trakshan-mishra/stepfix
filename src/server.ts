@@ -190,8 +190,31 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
       privacyMode: this.state.privacyMode,
       abortSignal: options?.abortSignal,
       envelope: { sessionId: this.name, turnId: nanoid(12) },
-      estimate: { inputTokens: 1000, maxOutputTokens: 500 },
-      maxSteps: useMock ? 1 : 4
+      estimate: {
+        // ~4 characters per token; reasoning models also spend output on thinking.
+        inputTokens: Math.ceil(
+          (systemPrompt.length + JSON.stringify(preparedMessages).length) / 4
+        ),
+        maxOutputTokens: 800,
+        // support may update the case, hand off, and get the first card in one turn
+        requests: useMock ? 1 : phase === "support" ? 3 : 2
+      },
+      // Room for a handoff and the technician's first step in the same turn.
+      maxSteps: useMock ? 1 : 6,
+      systemForStep: () => {
+        if (phase !== "support" || this.state.phase !== "technician") {
+          return undefined;
+        }
+        return buildSystemPrompt(
+          "technician",
+          this.state.caseFile,
+          this.state.steps,
+          formatCatalogSubset(
+            this.state.caseFile.os,
+            this.state.caseFile.category ?? "bluetooth"
+          )
+        );
+      }
     };
 
     const stream = createUIMessageStream({

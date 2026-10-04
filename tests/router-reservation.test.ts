@@ -492,3 +492,33 @@ describe("buildReservationEntries", () => {
     expect(result.ok).toBe(true);
   });
 });
+
+describe("buildReservationEntries: multi-step turns", () => {
+  it("reserves every model call a turn may make, not just one", async () => {
+    const { buildReservationEntries } =
+      await import("../src/server/llm/router");
+    const { buildRegistry } = await import("../src/server/llm/models.config");
+    const groq = buildRegistry({}).find((e) => e.key === "groq:gpt-oss-20b")!;
+    const now = Date.UTC(2026, 9, 4, 12, 0, 0);
+
+    const single = buildReservationEntries(
+      groq,
+      { inputTokens: 1500, maxOutputTokens: 800 },
+      now
+    );
+    const triple = buildReservationEntries(
+      groq,
+      { inputTokens: 1500, maxOutputTokens: 800, requests: 3 },
+      now
+    );
+
+    const amount = (entries: typeof single, dim: string, kind: string) =>
+      entries.find((e) => e.dimension === dim && e.window.kind === kind)!
+        .amount;
+
+    expect(amount(single, "requests", "minute")).toBe(1);
+    expect(amount(triple, "requests", "minute")).toBe(3);
+    expect(amount(single, "totalTokens", "minute")).toBe(2300);
+    expect(amount(triple, "totalTokens", "minute")).toBe(6900);
+  });
+});

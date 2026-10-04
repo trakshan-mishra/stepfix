@@ -2,6 +2,7 @@ import type { LanguageModelV4 } from "@ai-sdk/provider";
 import {
   streamText,
   stepCountIs,
+  hasToolCall,
   pruneMessages,
   type UIMessageStreamWriter,
   type UIMessage,
@@ -30,8 +31,13 @@ export interface TurnRequest {
   privacyMode: boolean;
   abortSignal?: AbortSignal;
   envelope: { sessionId: string; turnId: string };
-  estimate: { inputTokens: number; maxOutputTokens: number };
+  // requests: model calls this turn may make (tool-loop steps). Each one resends
+  // the prompt, so reserved tokens scale with it.
+  estimate: { inputTokens: number; maxOutputTokens: number; requests?: number };
   maxSteps?: number;
+  // Called before each tool-loop step. Returning a string replaces the system
+  // prompt for that step, e.g. after a handoff switches the session's phase.
+  systemForStep?: () => string | undefined;
 }
 
 export type TurnResult =
@@ -67,7 +73,7 @@ const MAX_ATTEMPTS = 3;
 
 export function buildReservationEntries(
   entry: ModelEntry,
-  estimate: { inputTokens: number; maxOutputTokens: number },
+  estimate: { inputTokens: number; maxOutputTokens: number; requests?: number },
   now: number
 ): ReservationEntry[] {
   const qk: QuotaKey = {
@@ -77,11 +83,18 @@ export function buildReservationEntries(
     quotaGroup: entry.quotaGroup
   };
   const entries: ReservationEntry[] = [];
-  const totalTokens = estimate.inputTokens + estimate.maxOutputTokens;
+  const requests = Math.max(1, estimate.requests ?? 1);
+  const totalTokens =
+    (estimate.inputTokens + estimate.maxOutputTokens) * requests;
 
   for (const kind of ["minute", "day"] as const) {
     const w = computeWindow(entry.provider, kind, now);
-    entries.push({ quotaKey: qk, window: w, dimension: "requests", amount: 1 });
+    entries.push({
+      quotaKey: qk,
+      window: w,
+      dimension: "requests",
+      amount: requests
+    });
     entries.push({
       quotaKey: qk,
       window: w,
@@ -93,8 +106,9 @@ export function buildReservationEntries(
   if (entry.neuronRate) {
     const w = computeWindow(entry.provider, "day", now);
     const neurons =
-      (estimate.inputTokens / 1e6) * entry.neuronRate.inputPerMillion +
-      (estimate.maxOutputTokens / 1e6) * entry.neuronRate.outputPerMillion;
+      ((estimate.inputTokens / 1e6) * entry.neuronRate.inputPerMillion +
+        (estimate.maxOutputTokens / 1e6) * entry.neuronRate.outputPerMillion) *
+      requests;
     entries.push({
       quotaKey: qk,
       window: w,
@@ -250,7 +264,16 @@ export async function streamTurn(
         messages,
         tools: req.tools,
         maxRetries: 0,
-        stopWhen: stepCountIs(req.maxSteps ?? 4),
+        stopWhen: [
+          stepCountIs(req.maxSteps ?? 4),
+          hasToolCall("recommend_step")
+        ],
+        prepareStep: req.systemForStep
+          ? () => {
+              const system = req.systemForStep?.();
+              return system ? { system } : {};
+            }
+          : undefined,
         abortSignal: ctrl.signal
       });
 
@@ -272,7 +295,8 @@ export async function streamTurn(
       }
 
       try {
-        const usage = await result.usage;
+        // totalUsage sums every tool-loop step; usage is only the last step.
+        const usage = await result.totalUsage;
         actualUsage = {
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,

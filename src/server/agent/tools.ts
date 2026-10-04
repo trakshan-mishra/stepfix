@@ -120,7 +120,11 @@ export function buildTools(ctx: ToolContext) {
         ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "technician");
         ctx.setState(ctx.state);
-        return { ok: true, caseVersion: ctx.state.caseFile.caseVersion };
+        return {
+          ok: true,
+          caseVersion: ctx.state.caseFile.caseVersion,
+          next: "You are now the Technician. In this same reply, recommend the first step."
+        };
       }
     }),
 
