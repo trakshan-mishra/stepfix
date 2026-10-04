@@ -15,28 +15,14 @@ import {
   type AdmissionResult,
   type ConsumeResult,
   type SessionEnvelope,
-  createReservationLedger
+  createReservationLedger,
+  reviveCoordinatorData
 } from "./coordinator-logic";
 
 const ALARM_INTERVAL_MS = 60 * 1000;
 
 function ensureState(state: CoordinatorData | undefined): CoordinatorData {
-  if (!state || !state.sessions) {
-    return createCoordinatorData();
-  }
-  if (!state.quotas) state.quotas = {};
-  if (!state.killSwitches) {
-    state.killSwitches = {
-      disabledProviders: [],
-      disabledModels: [],
-      forceDegraded: false,
-      admissionsPaused: false
-    };
-  }
-  if (!state.ledger) {
-    state.ledger = createReservationLedger();
-  }
-  return state;
+  return reviveCoordinatorData(state);
 }
 
 export class Coordinator extends Agent<Env, CoordinatorData> {

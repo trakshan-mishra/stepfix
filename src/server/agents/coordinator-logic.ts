@@ -154,11 +154,17 @@ export interface ReservationLedger {
   idempotencyKeys: Map<string, string>;
 }
 
+export class JsonMap<K, V> extends Map<K, V> {
+  toJSON(): [K, V][] {
+    return Array.from(this.entries());
+  }
+}
+
 export function createReservationLedger(): ReservationLedger {
   return {
-    windows: new Map(),
-    leases: new Map(),
-    idempotencyKeys: new Map()
+    windows: new JsonMap(),
+    leases: new JsonMap(),
+    idempotencyKeys: new JsonMap()
   };
 }
 
@@ -360,6 +366,48 @@ export function createCoordinatorData(): CoordinatorData {
       admissionsPaused: false
     },
     ledger: createReservationLedger()
+  };
+}
+
+function reviveJsonMap<K, V>(raw: unknown): JsonMap<K, V> {
+  if (raw instanceof Map) {
+    return new JsonMap<K, V>(raw);
+  }
+  if (Array.isArray(raw)) {
+    return new JsonMap<K, V>(raw as [K, V][]);
+  }
+  if (raw && typeof raw === "object") {
+    return new JsonMap<K, V>(Object.entries(raw) as [K, V][]);
+  }
+  return new JsonMap<K, V>();
+}
+
+export function reviveCoordinatorData(raw: unknown): CoordinatorData {
+  if (
+    !raw ||
+    typeof raw !== "object" ||
+    !("sessions" in raw) ||
+    !(raw as { sessions?: unknown }).sessions
+  ) {
+    return createCoordinatorData();
+  }
+
+  const state = raw as CoordinatorData;
+  const ledger = state.ledger;
+  return {
+    ...state,
+    quotas: state.quotas ?? {},
+    killSwitches: state.killSwitches ?? {
+      disabledProviders: [],
+      disabledModels: [],
+      forceDegraded: false,
+      admissionsPaused: false
+    },
+    ledger: {
+      windows: reviveJsonMap<string, WindowCounter>(ledger?.windows),
+      leases: reviveJsonMap<string, Reservation>(ledger?.leases),
+      idempotencyKeys: reviveJsonMap<string, string>(ledger?.idempotencyKeys)
+    }
   };
 }
 

@@ -164,6 +164,56 @@ const noChaos = {
 };
 
 describe("router reservation flow", () => {
+  it("returns coordinator_unavailable when reserve throws", async () => {
+    const writer = makeMockWriter();
+    const getModel = vi.fn(() => makeSuccessModel() as never);
+    const reservation = makeMockReservation();
+    reservation.reserve.mockRejectedValue(new Error("coordinator offline"));
+
+    const ctx: RouterContext = {
+      candidates: [makeEntry("groq:test")],
+      getModel: getModel as never,
+      report: () => {},
+      isCooling: () => false,
+      chaos: noChaos,
+      reserve: reservation.reserve,
+      dispatch: reservation.dispatch,
+      reconcile: reservation.reconcile,
+      limits: {},
+      configVersion: "test"
+    };
+
+    await expect(
+      streamTurn(ctx, "support", makeTurnRequest(), writer)
+    ).resolves.toEqual({ ok: false, reason: "coordinator_unavailable" });
+    expect(getModel).not.toHaveBeenCalled();
+  });
+
+  it("returns coordinator_unavailable when dispatch throws", async () => {
+    const writer = makeMockWriter();
+    const getModel = vi.fn(() => makeSuccessModel() as never);
+    const reservation = makeMockReservation();
+    reservation.dispatch.mockRejectedValue(new Error("coordinator offline"));
+
+    const ctx: RouterContext = {
+      candidates: [makeEntry("groq:test")],
+      getModel: getModel as never,
+      report: () => {},
+      isCooling: () => false,
+      chaos: noChaos,
+      reserve: reservation.reserve,
+      dispatch: reservation.dispatch,
+      reconcile: reservation.reconcile,
+      limits: {},
+      configVersion: "test"
+    };
+
+    await expect(
+      streamTurn(ctx, "support", makeTurnRequest(), writer)
+    ).resolves.toEqual({ ok: false, reason: "coordinator_unavailable" });
+    expect(getModel).not.toHaveBeenCalled();
+  });
+
   it("no call dispatched without a reservation", async () => {
     const writer = makeMockWriter();
     const getModel = vi.fn(() => makeSuccessModel() as never);
@@ -249,7 +299,7 @@ describe("router reservation flow", () => {
     expect(reservation.dispatch).not.toHaveBeenCalled();
   });
 
-  it("coordinator_unavailable returns quota_denied (no live call)", async () => {
+  it("coordinator_unavailable stops before a live call", async () => {
     const writer = makeMockWriter();
     const getModel = vi.fn(() => makeSuccessModel() as never);
     const reservation = makeMockReservation();
@@ -273,7 +323,7 @@ describe("router reservation flow", () => {
 
     const result = await streamTurn(ctx, "support", makeTurnRequest(), writer);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("quota_denied");
+    if (!result.ok) expect(result.reason).toBe("coordinator_unavailable");
     expect(getModel).not.toHaveBeenCalled();
   });
 

@@ -11,6 +11,14 @@
 - `npm test`: `Test Files 16 passed (16)`; `Tests 421 passed (421)`.
 - `npm run check`: `All matched files use the correct format.`; `Finished in 1117ms on 122 files using 8 threads.`; lint and TypeScript passed with no errors.
 
+### WO-A — Reservation ledger persistence
+
+- Regression tests before the fix: `npx vitest run tests/coordinator.test.ts tests/router-reservation.test.ts`
+- Result: failed as expected — 2 test files failed, 3 tests failed, 25 passed. The state tests reported `TypeError: reviveCoordinatorData is not a function`; the router test reported that the promise rejected with `Error: coordinator offline` instead of resolving with `coordinator_unavailable`.
+- Implementation: added JSON-serializable maps, coordinator state revival, and reserve/dispatch exception fallback. The final focused run passed: `Test Files 2 passed (2)` and `Tests 29 passed (29)`.
+- `npm test`: `Test Files 16 passed (16)`; `Tests 425 passed (425)`.
+- `npm run check`: `All matched files use the correct format.`; `Finished in 1193ms on 122 files using 8 threads.`; lint and TypeScript passed with no errors.
+
 ## Current milestone
 
 v2 WO-1 through WO-12 complete (2026-09-13)

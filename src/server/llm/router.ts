@@ -36,7 +36,14 @@ export interface TurnRequest {
 
 export type TurnResult =
   | { ok: true; modelKey: string; usage?: Usage }
-  | { ok: false; reason: "no_provider" | "deadline" | "quota_denied" };
+  | {
+      ok: false;
+      reason:
+        | "no_provider"
+        | "deadline"
+        | "quota_denied"
+        | "coordinator_unavailable";
+    };
 
 export interface RouterContext {
   candidates: ModelEntry[];
@@ -168,13 +175,20 @@ export async function streamTurn(
       estimate: req.estimate
     };
 
-    const reserveOutcome = await ctx.reserve(reserveReq);
+    let reserveOutcome: ReserveOutcome;
+    try {
+      reserveOutcome = await ctx.reserve(reserveReq);
+    } catch {
+      clearTimeout(ttft);
+      req.abortSignal?.removeEventListener("abort", onUserAbort);
+      return { ok: false, reason: "coordinator_unavailable" };
+    }
 
     if (!reserveOutcome.ok) {
       clearTimeout(ttft);
       req.abortSignal?.removeEventListener("abort", onUserAbort);
       if (reserveOutcome.reason === "coordinator_unavailable") {
-        return { ok: false, reason: "quota_denied" };
+        return { ok: false, reason: "coordinator_unavailable" };
       }
       if (reserveOutcome.reason === "quota_exhausted") {
         quotaDenied = true;
@@ -196,7 +210,14 @@ export async function streamTurn(
     const leaseId = reserveOutcome.ok ? reserveOutcome.lease.leaseId : null;
 
     if (leaseId) {
-      const dispatchOutcome = await ctx.dispatch(leaseId);
+      let dispatchOutcome: DispatchOutcome;
+      try {
+        dispatchOutcome = await ctx.dispatch(leaseId);
+      } catch {
+        clearTimeout(ttft);
+        req.abortSignal?.removeEventListener("abort", onUserAbort);
+        return { ok: false, reason: "coordinator_unavailable" };
+      }
       if (!dispatchOutcome.ok && dispatchOutcome.reason === "not_found") {
         clearTimeout(ttft);
         req.abortSignal?.removeEventListener("abort", onUserAbort);

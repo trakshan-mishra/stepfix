@@ -1,12 +1,76 @@
 import { describe, it, expect } from "vitest";
 import {
   CoordinatorLogic,
-  createCoordinatorData
+  createCoordinatorData,
+  computeWindow,
+  reviveCoordinatorData,
+  type ReserveRequest
 } from "../src/server/agents/coordinator-logic";
 
 function makeLogic(maxActive = 20) {
   return new CoordinatorLogic(createCoordinatorData(), { maxActive });
 }
+
+function makeReserveRequest(): ReserveRequest {
+  return {
+    requestId: "request-1",
+    sessionId: "session-1",
+    turnId: "turn-1",
+    attempt: 1,
+    configVersion: "test",
+    idempotencyKey: "session-1-turn-1-1",
+    entries: [
+      {
+        quotaKey: {
+          provider: "groq",
+          org: "default",
+          project: "default",
+          quotaGroup: "groq-org-text"
+        },
+        window: computeWindow("groq", "minute", 1_700_000_000_000),
+        dimension: "requests",
+        amount: 1
+      }
+    ],
+    estimate: { inputTokens: 100, maxOutputTokens: 50 }
+  };
+}
+
+describe("Coordinator state revival", () => {
+  it("preserves leases and idempotency keys through JSON persistence", () => {
+    const data = createCoordinatorData();
+    const first = new CoordinatorLogic(data).reserve(makeReserveRequest(), {});
+    expect(first.ok).toBe(true);
+
+    const revived = reviveCoordinatorData(JSON.parse(JSON.stringify(data)));
+    const second = new CoordinatorLogic(revived).reserve(
+      makeReserveRequest(),
+      {}
+    );
+
+    expect(second.ok).toBe(true);
+    if (first.ok && second.ok) {
+      expect(revived.ledger.leases.get(first.lease.leaseId)).toEqual(
+        first.lease
+      );
+      expect(revived.ledger.idempotencyKeys.get("session-1-turn-1-1")).toBe(
+        first.lease.leaseId
+      );
+      expect(second.lease.leaseId).toBe(first.lease.leaseId);
+    }
+  });
+
+  it("revives the old corrupted ledger shape", () => {
+    const revived = reviveCoordinatorData({
+      ...createCoordinatorData(),
+      ledger: { windows: {}, leases: {}, idempotencyKeys: {} }
+    });
+
+    expect(() =>
+      new CoordinatorLogic(revived).reserve(makeReserveRequest(), {})
+    ).not.toThrow();
+  });
+});
 
 describe("Coordinator admission", () => {
   it("admits when under cap", () => {
