@@ -24,7 +24,10 @@ import {
   isTerminal
 } from "../src/server/agent/phases";
 import { buildEscalationReport } from "../src/server/report/escalation";
-import { buildSystemPrompt } from "../src/server/agent/prepare-messages";
+import {
+  buildSystemPrompt,
+  formatCatalogSubset
+} from "../src/server/agent/prepare-messages";
 
 function makeCaseFile(overrides: Partial<CaseFile> = {}): CaseFile {
   return {
@@ -541,6 +544,12 @@ describe("handleStepResult", () => {
 });
 
 describe("buildSystemPrompt placeholder wiring", () => {
+  it("includes the compiled script catalog for the technician", () => {
+    const catalog = formatCatalogSubset("ubuntu", "wifi");
+    expect(catalog).not.toBe("(library not available)");
+    expect(catalog).toContain("linux.net.radio");
+  });
+
   it("technician prompt has placeholders replaced", () => {
     const caseFile = makeCaseFile({
       os: "ubuntu",

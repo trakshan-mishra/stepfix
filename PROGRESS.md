@@ -44,6 +44,18 @@
 - `git status --short` was identical before and after both test runs, so the tests created no new changes. The only untracked paths remained the pre-existing `STATUS.md` and `.dev.vars` editor swap file.
 - `npm run check`: `All matched files use the correct format.`; `Finished in 999ms on 121 files using 8 threads.`; lint and TypeScript passed with no errors.
 
+### WO-C — Live end-to-end conversation
+
+- Started the app with `npx vite dev --port 5173` and used the live mode from `.dev.vars`.
+- Sent: “My Wi-Fi stopped working on my Ubuntu laptop. It shows no networks at all.” The Groq response arrived without a `[backup mode: ...]` marker, asked when the problem started, updated the case after the answer, and handed off from Support to Technician. The HandoffBanner showed in the UI.
+- The first technician turn exposed a real Worker bug: its reasoning reported `Available script ids: (library not available)`, then it gave plain guidance instead of a ScriptCard. `formatCatalogSubset()` was using CommonJS `require()` in the ESM Worker and silently replacing the thrown error with that fallback text.
+- Added a regression test that initially failed with `(library not available)`, then replaced the runtime `require()` with a static catalog import. The focused test passed with `Test Files 1 passed (1)` and `Tests 51 passed (51)`.
+- Retried in the same live session. The technician produced a ScriptCard for `linux.net.radio` with command `nmcli radio wifi`. “Why this?” explained the read-only NetworkManager check, and “What you should see” listed the enabled, disabled, and command-not-found outcomes.
+- Clicked “Didn't work.” The UI recorded `Step ...: failed` and immediately started the next technician turn, so the result advanced the case.
+- Fallback check: disabled the `groq` provider through the local admin kill switch and confirmed both Groq gpt-oss candidates were off while `workers-ai:glm-4.7-flash` was available. The next live turn returned a normal GLM reply and attempted `recommend_step`; that call was rejected only because another card was already pending. Re-enabled Groq immediately afterward and confirmed the kill-switch lists were empty.
+- `npm test`: `Test Files 16 passed (16)`; `Tests 427 passed (427)`.
+- `npm run check`: `All matched files use the correct format.`; `Finished in 1064ms on 121 files using 8 threads.`; lint and TypeScript passed with no errors.
+
 ## Current milestone
 
 v2 WO-1 through WO-12 complete (2026-09-13)

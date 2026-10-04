@@ -5,6 +5,7 @@ import {
   truncateForUntrusted,
   stripLookalikeTags
 } from "../guardrails/untrusted";
+import { catalogFor } from "../library/index";
 import technicianPromptText from "./prompts/technician.md?raw";
 import supportPromptText from "./prompts/support.md?raw";
 
@@ -46,26 +47,15 @@ export function buildSystemPrompt(
 }
 
 export function formatCatalogSubset(os: string, category: string): string {
-  try {
-    const { catalogFor } = require("../library/index");
-    const entries = catalogFor(os, category);
-    if (entries.length === 0)
-      return "(no scripts available for this OS/category)";
-    return entries
-      .map(
-        (e: {
-          id: string;
-          title: string;
-          risk: string;
-          needs_admin: boolean;
-          when_to_use: string;
-        }) =>
-          `- ${e.id} | ${e.title} | risk: ${e.risk} | admin: ${e.needs_admin} | ${e.when_to_use}`
-      )
-      .join("\n");
-  } catch {
-    return "(library not available)";
-  }
+  const entries = catalogFor(os, category);
+  if (entries.length === 0)
+    return "(no scripts available for this OS/category)";
+  return entries
+    .map(
+      (e) =>
+        `- ${e.id} | ${e.title} | risk: ${e.risk} | admin: ${e.needs_admin} | ${e.when_to_use}`
+    )
+    .join("\n");
 }
 
 export function prepareMessagesForModel(
