@@ -194,7 +194,7 @@ export default function ScriptCard({
           <>
             <button
               onClick={() => setShowPaste(true)}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
             >
               Paste output
             </button>

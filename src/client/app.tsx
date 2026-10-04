@@ -94,6 +94,16 @@ function ThemeToggle() {
 
 // ── Tool rendering ────────────────────────────────────────────────────
 
+const STEP_RESULT_LABELS: Record<
+  "ran" | "worked" | "failed" | "cant_run",
+  string
+> = {
+  ran: "I ran it",
+  worked: "It worked",
+  failed: "Didn't work",
+  cant_run: "I couldn't run it"
+};
+
 function sanitizeAssistantText(text: string): string {
   const redacted = redactCommands(text);
   return redacted.replace(/```[\s\S]*?```/g, "[code redacted]");
@@ -130,7 +140,8 @@ function ToolPartView({
   onStepResult?: (
     stepId: string,
     status: "ran" | "worked" | "failed" | "cant_run",
-    output?: string
+    output?: string,
+    title?: string
   ) => void;
   debug: boolean;
 }) {
@@ -144,7 +155,12 @@ function ToolPartView({
       if (output?.ok && output.card) {
         return (
           <div className="flex justify-start w-full">
-            <ScriptCard card={output.card} onResult={onStepResult} />
+            <ScriptCard
+              card={output.card}
+              onResult={(stepId, status, out) =>
+                onStepResult(stepId, status, out, output.card?.title)
+              }
+            />
           </div>
         );
       }
@@ -371,14 +387,16 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
     (
       stepId: string,
       stepStatus: "ran" | "worked" | "failed" | "cant_run",
-      output?: string
+      output?: string,
+      title?: string
     ) => {
+      const label = STEP_RESULT_LABELS[stepStatus];
       sendMessage({
         role: "user",
         parts: [
           {
             type: "text",
-            text: `Step ${stepId}: ${stepStatus}${output ? ` — ${output.slice(0, 200)}` : ""}`
+            text: `${label}${title ? `: ${title}` : ""}${output ? `\n\nWhat I saw:\n${output.slice(0, 200)}` : ""}`
           }
         ],
         metadata: { kind: "step_result", stepId, status: stepStatus, output }
@@ -631,7 +649,7 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                         <div key={key} className="flex justify-start">
                           <details
                             className="max-w-[85%] w-full"
-                            open={!isDone}
+                            open={showDebug && !isDone}
                           >
                             <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
                               <BrainIcon
@@ -639,15 +657,15 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                                 className="text-purple-400"
                               />
                               <span className="font-medium text-kumo-default">
-                                Reasoning
+                                Thinking
                               </span>
                               {isDone ? (
                                 <span className="text-xs text-kumo-success">
-                                  Complete
+                                  done
                                 </span>
                               ) : (
                                 <span className="text-xs text-kumo-brand">
-                                  Thinking...
+                                  …
                                 </span>
                               )}
                               <CaretDownIcon
@@ -655,9 +673,11 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                                 className="ml-auto text-kumo-inactive"
                               />
                             </summary>
-                            <pre className="mt-2 px-3 py-2 rounded-lg bg-kumo-control text-xs text-kumo-default whitespace-pre-wrap overflow-auto max-h-64">
-                              {part.text}
-                            </pre>
+                            {showDebug && (
+                              <pre className="mt-2 px-3 py-2 rounded-lg bg-kumo-control text-xs text-kumo-default whitespace-pre-wrap overflow-auto max-h-64">
+                                {part.text}
+                              </pre>
+                            )}
                           </details>
                         </div>
                       );

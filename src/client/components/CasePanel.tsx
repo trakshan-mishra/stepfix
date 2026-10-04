@@ -26,29 +26,31 @@ export default function CasePanel({
     <div className="bg-white border border-gray-200 rounded-xl p-4 w-72 shrink-0 h-fit sticky top-4">
       <h2 className="text-sm font-semibold text-gray-700 mb-3">Case</h2>
       <dl className="space-y-1 text-sm">
-        <div className="flex justify-between">
+        <div className="flex justify-between gap-4">
           <dt className="text-gray-500">Phase</dt>
-          <dd className="text-gray-700 capitalize">{phase}</dd>
+          <dd className="text-gray-700 text-right capitalize">{phase}</dd>
         </div>
         {caseFile.os !== "unknown" && (
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-4">
             <dt className="text-gray-500">OS</dt>
-            <dd className="text-gray-700">
+            <dd className="text-gray-700 text-right">
               {caseFile.os}
               {caseFile.osVersion ? " " + caseFile.osVersion : ""}
             </dd>
           </div>
         )}
         {caseFile.category && (
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-4">
             <dt className="text-gray-500">Problem</dt>
-            <dd className="text-gray-700 capitalize">{caseFile.category}</dd>
+            <dd className="text-gray-700 text-right capitalize">
+              {caseFile.category}
+            </dd>
           </div>
         )}
         {caseFile.whenStarted && (
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-4">
             <dt className="text-gray-500">Started</dt>
-            <dd className="text-gray-700">{caseFile.whenStarted}</dd>
+            <dd className="text-gray-700 text-right">{caseFile.whenStarted}</dd>
           </div>
         )}
       </dl>
