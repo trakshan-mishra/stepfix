@@ -8,9 +8,7 @@ The AI is never allowed to write commands. Every command comes from the reviewed
 
 ## Models
 
-open-weight models only: gpt-oss-20b and gpt-oss-120b on Groq, with GLM-4.7-flash on Cloudflare Workers AI as the fallback, and a scripted playbook if every model is down.
-
-Gemini stays disabled.
+Open-weight models only: gpt-oss-20b and gpt-oss-120b on Groq, with GLM-4.7-flash on Cloudflare Workers AI as the fallback, and a scripted playbook if every model is down. No closed models are used.
 
 ## Run locally
 
