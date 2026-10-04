@@ -451,6 +451,11 @@ describe("tool: mark_resolved", () => {
     });
     expect(result.ok).toBe(true);
     expect(ctx.state.phase).toBe("resolved");
+    const summary = (result as { summary?: string }).summary ?? "";
+    expect(summary).toContain("## What fixed it");
+    expect(summary).toContain("Bluetooth was soft-blocked");
+    expect(summary).toContain("## What we tried");
+    expect(summary).toMatch(/1\. .+: worked/);
   });
 
   it("rejects when postcondition not met", async () => {

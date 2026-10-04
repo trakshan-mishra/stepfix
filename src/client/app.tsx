@@ -184,6 +184,22 @@ function ToolPartView({
       }
     }
 
+    if (toolName === "mark_resolved") {
+      const output = part.output as
+        | { ok?: boolean; summary?: string }
+        | undefined;
+      if (output?.ok && output.summary) {
+        return (
+          <ReportCard
+            markdown={output.summary}
+            title="Fix summary"
+            note={null}
+            filename="stepfix-summary.md"
+          />
+        );
+      }
+    }
+
     if (!debug) return null;
 
     return (

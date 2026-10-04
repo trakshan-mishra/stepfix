@@ -9,6 +9,7 @@ import {
 } from "./case-file";
 import { catalogFor, getScript, renderCommand } from "../library/index";
 import { buildEscalationReport } from "../report/escalation";
+import { buildResolutionSummary } from "../report/summary";
 import { transition } from "./phases";
 import { wrapUntrusted, truncateForUntrusted } from "../guardrails/untrusted";
 import { scrub } from "../guardrails/scrub";
@@ -310,7 +311,15 @@ export function buildTools(ctx: ToolContext) {
         ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "resolved");
         ctx.setState(ctx.state);
-        return { ok: true, rootCause: input.rootCause };
+        return {
+          ok: true,
+          rootCause: input.rootCause,
+          summary: buildResolutionSummary({
+            caseFile: ctx.state.caseFile,
+            steps: ctx.state.steps,
+            rootCause: input.rootCause
+          })
+        };
       }
     }),
 
