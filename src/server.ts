@@ -22,6 +22,7 @@ import {
   prepareMessagesForModel
 } from "./server/agent/prepare-messages";
 import { scanForCommands } from "./server/guardrails/command-scanner";
+import { endsTurn } from "./server/llm/turn-policy";
 import { type CaseFile, type Step, type Phase } from "./server/agent/case-file";
 import {
   streamTurn,
@@ -201,6 +202,7 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
       },
       // Room for a handoff and the technician's first step in the same turn.
       maxSteps: useMock ? 1 : 6,
+      stopAfterStep: endsTurn,
       systemForStep: () => {
         if (phase !== "support" || this.state.phase !== "technician") {
           return undefined;

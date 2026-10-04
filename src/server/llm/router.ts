@@ -38,6 +38,11 @@ export interface TurnRequest {
   // Called before each tool-loop step. Returning a string replaces the system
   // prompt for that step, e.g. after a handoff switches the session's phase.
   systemForStep?: () => string | undefined;
+  // Extra condition for ending the tool loop early, checked after each step.
+  stopAfterStep?: (step: {
+    text: string;
+    toolResults: Array<{ toolName: string; output: unknown }>;
+  }) => boolean;
 }
 
 export type TurnResult =
@@ -266,7 +271,20 @@ export async function streamTurn(
         maxRetries: 0,
         stopWhen: [
           stepCountIs(req.maxSteps ?? 4),
-          hasToolCall("recommend_step")
+          hasToolCall("recommend_step"),
+          ({ steps }) => {
+            const last = steps[steps.length - 1];
+            return Boolean(
+              last &&
+              req.stopAfterStep?.({
+                text: last.text,
+                toolResults: last.toolResults as Array<{
+                  toolName: string;
+                  output: unknown;
+                }>
+              })
+            );
+          }
         ],
         prepareStep: req.systemForStep
           ? () => {
