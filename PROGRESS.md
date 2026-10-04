@@ -1,5 +1,13 @@
 # stepfix — build progress
 
+## DEV challenge completion summary (2026-10-04)
+
+- WO-A, WO-B, WO-C, and WO-D are complete, together with Amendments 1 through 4.
+- `npm test`: 427 tests passed across 16 test files.
+- `npm run check`: formatting, lint, and TypeScript passed.
+- WO-C initially failed to render a ScriptCard because the ESM Worker tried to load the library with CommonJS `require()`. The focused regression test reproduced it, the static-import fix passed, and the live retry showed the expected command, explanation, outcomes, handoff, and result transition.
+- The local knowledge-base search returned no rows because the D1 binding is unavailable in this development context. It did not block the reviewed-library ScriptCard. The Workers AI GLM fallback returned normally with Groq disabled; its attempted next step was rejected only because an earlier card was still pending.
+
 ## DEV challenge work orders (2026-10-04)
 
 ### Amendment 1 — Pre-existing baseline repairs
@@ -64,6 +72,13 @@
 - The client has no DOM render-test setup (`jsdom`, `happy-dom`, or Testing Library), so this was checked manually in the live app as Amendment 4 permits. Without the query parameter, the existing `update_case`, `search_kb`, and rejected `recommend_step` cards disappeared while ScriptCards and the HandoffBanner remained. With `?debug=1`, the same raw cards and message JSON appeared. After clearing the disposable WO-C chat, all four suggestions appeared as accessibility-tree buttons; clicking the Wi-Fi suggestion inserted and submitted its text immediately.
 - `npm test`: `Test Files 16 passed (16)`; `Tests 427 passed (427)`.
 - `npm run check`: `All matched files use the correct format.`; `Finished in 1196ms on 121 files using 8 threads.`; lint and TypeScript passed with no errors.
+
+### WO-D — Public README
+
+- Replaced the Cloudflare Agents starter README with a short stepfix overview, reviewed-library safety model, amended Groq/Workers AI model line, local setup, current test commands and count, beta platform scope, and MIT license reference.
+- Removed the starter badges, demo prompts, weather, scheduling, MCP, provider examples, and starter-template project structure.
+- `npm test`: `Test Files 16 passed (16)`; `Tests 427 passed (427)`.
+- `npm run check`: formatting, lint, and TypeScript passed with no errors.
 
 ## Current milestone
 
