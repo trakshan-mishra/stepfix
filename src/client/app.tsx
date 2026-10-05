@@ -130,7 +130,9 @@ function ToolPartView({
   part,
   addToolApprovalResponse,
   onStepResult,
-  debug
+  debug,
+  steps = [],
+  disabled = false
 }: {
   part: UIMessage["parts"][number];
   addToolApprovalResponse: (response: {
@@ -144,6 +146,8 @@ function ToolPartView({
     title?: string
   ) => void;
   debug: boolean;
+  steps?: Step[];
+  disabled?: boolean;
 }) {
   if (!isToolUIPart(part)) return null;
   const toolName = getToolName(part);
@@ -157,6 +161,8 @@ function ToolPartView({
           <div className="flex justify-start w-full">
             <ScriptCard
               card={output.card}
+              result={steps.find((s) => s.stepId === output.card?.stepId)}
+              disabled={disabled}
               onResult={(stepId, status, out) =>
                 onStepResult(stepId, status, out, output.card?.title)
               }
@@ -354,13 +360,18 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
   const [caseSteps, setCaseSteps] = useState<Step[]>([]);
   const [casePhase, setCasePhase] = useState<string>("support");
 
-  const agent = useAgent<SupportSession>({
+  const agent = useAgent<SupportSession["state"]>({
     agent: "SupportSession",
     name: sessionId,
     query: token
       ? () => Promise.resolve({ token } as Record<string, string>)
       : undefined,
     onOpen: useCallback(() => setConnected(true), []),
+    onStateUpdate: useCallback((state: SupportSession["state"]) => {
+      setCaseFile(state.caseFile);
+      setCaseSteps(state.steps);
+      setCasePhase(state.phase);
+    }, []),
     onClose: useCallback(() => setConnected(false), []),
     onError: useCallback(
       (error: Event) => console.error("WebSocket error:", error),
@@ -398,6 +409,7 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
   });
 
   const isStreaming = status === "streaming" || status === "submitted";
+  const sessionEnded = ["resolved", "escalated", "closed"].includes(casePhase);
 
   const handleStepResult = useCallback(
     (
@@ -406,7 +418,10 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
       output?: string,
       title?: string
     ) => {
-      const label = STEP_RESULT_LABELS[stepStatus];
+      const label =
+        stepStatus === "ran"
+          ? "Completed the step"
+          : STEP_RESULT_LABELS[stepStatus];
       sendMessage({
         role: "user",
         parts: [
@@ -417,13 +432,6 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
         ],
         metadata: { kind: "step_result", stepId, status: stepStatus, output }
       } as never);
-      setCaseSteps((prev) =>
-        prev.map((s) =>
-          s.stepId === stepId
-            ? { ...s, status: stepStatus as Step["status"], output }
-            : s
-        )
-      );
     },
     [sendMessage]
   );
@@ -654,6 +662,8 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                           addToolApprovalResponse={addToolApprovalResponse}
                           onStepResult={handleStepResult}
                           debug={showDebug}
+                          steps={caseSteps}
+                          disabled={isStreaming || sessionEnded}
                         />
                       );
                     }
@@ -773,6 +783,29 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
 
       {/* Input */}
       <div className="border-t border-kumo-line bg-kumo-base">
+        {casePhase === "technician" && (
+          <div className="max-w-3xl mx-auto px-5 pt-2">
+            <button
+              disabled={isStreaming}
+              className="text-sm underline"
+              onClick={() =>
+                sendMessage({
+                  role: "user",
+                  parts: [{ type: "text", text: "Stop troubleshooting" }]
+                })
+              }
+            >
+              Stop and get a report
+            </button>
+          </div>
+        )}
+        {sessionEnded && (
+          <p className="max-w-3xl mx-auto px-5 py-3 text-sm">
+            {casePhase === "resolved"
+              ? "Problem confirmed fixed. Your summary is ready to copy or download."
+              : "Troubleshooting ended. Your report is ready to copy or download; nobody has been contacted."}
+          </p>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -826,7 +859,7 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
               aria-label="Attach images"
               icon={<PaperclipIcon size={18} />}
               onClick={() => fileInputRef.current?.click()}
-              disabled={!connected || isStreaming}
+              disabled={!connected || isStreaming || sessionEnded}
               className="mb-0.5"
             />
             <InputArea
@@ -850,7 +883,7 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                   ? "Add a message or send images..."
                   : "Send a message..."
               }
-              disabled={!connected || isStreaming}
+              disabled={!connected || isStreaming || sessionEnded}
               rows={1}
               className="flex-1 ring-0! focus:ring-0! shadow-none! bg-transparent! outline-none! resize-none max-h-40"
             />
@@ -871,7 +904,9 @@ function Chat({ sessionId, token }: { sessionId?: string; token?: string }) {
                 shape="square"
                 aria-label="Send message"
                 disabled={
-                  (!input.trim() && attachments.length === 0) || !connected
+                  (!input.trim() && attachments.length === 0) ||
+                  !connected ||
+                  sessionEnded
                 }
                 icon={<PaperPlaneRightIcon size={18} />}
                 className="mb-0.5"

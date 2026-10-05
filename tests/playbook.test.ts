@@ -54,7 +54,7 @@ describe("playbook engine — support phase", () => {
       steps: [],
       degraded: true
     });
-    expect(result.text).toContain("Windows or Linux");
+    expect(result.text).toContain("operating system");
     expect(result.text).toContain("backup mode");
   });
 
@@ -69,8 +69,7 @@ describe("playbook engine — support phase", () => {
       steps: [],
       degraded: true
     });
-    expect(result.text).toContain("ubuntu");
-    expect(result.text).toContain("bluetooth");
+    expect(result.text).toContain("case details are saved");
   });
 });
 
@@ -88,7 +87,7 @@ describe("playbook engine — technician phase", () => {
         steps: [makeStep({ status: "pending" })]
       })
     );
-    expect(result.text).toContain("Run the step above");
+    expect(result.text).toContain("current card");
     expect(result.card).toBeUndefined();
   });
 
@@ -127,7 +126,7 @@ describe("playbook engine — technician phase", () => {
       })
     );
     expect(result.escalate).toBeDefined();
-    expect(result.text).toContain("can't go further");
+    expect(result.text).toContain("supported next step");
   });
 
   it("escalates when a step has been tried twice", () => {

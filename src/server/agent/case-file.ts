@@ -73,7 +73,9 @@ export const Step = z.object({
   matchedPatterns: z.array(z.string()).default([]),
   createdAt: z.number(),
   updatedAt: z.number(),
-  source: z.enum(["llm", "playbook"])
+  source: z.enum(["llm", "playbook"]),
+  awaitingEvidence: z.boolean().optional(),
+  clarificationAttempts: z.number().int().nonnegative().optional()
 });
 export type Step = z.infer<typeof Step>;
 
@@ -97,6 +99,8 @@ export const Card = z.object({
   risk: z.string(),
   needsAdmin: z.boolean(),
   kind: z.string(),
+  purpose: z.enum(["diagnostic", "fix", "verification"]).optional(),
+  verifiesOriginalTask: z.boolean().optional(),
   command: z.string().optional(),
   manualSteps: z.array(z.string()).optional(),
   deepLink: z.string().optional(),
@@ -109,3 +113,26 @@ export const Card = z.object({
   whyNow: z.string()
 });
 export type Card = z.infer<typeof Card>;
+
+export const WorkflowState = z.object({
+  stage: z.enum([
+    "diagnose",
+    "fix",
+    "verify",
+    "confirm",
+    "resolved",
+    "escalated"
+  ]),
+  failedFixes: z.number().int().nonnegative(),
+  fixStepId: z.string().optional(),
+  verificationStepId: z.string().optional(),
+  finding: z.string().optional()
+});
+export type WorkflowState = z.infer<typeof WorkflowState>;
+
+export const StepResultInput = z.object({
+  kind: z.literal("step_result"),
+  stepId: z.string().min(1),
+  status: z.enum(["ran", "worked", "failed", "cant_run"]),
+  output: z.string().max(8000).optional()
+});

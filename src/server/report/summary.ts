@@ -46,6 +46,25 @@ export function buildResolutionSummary(params: SummaryParams): string {
   lines.push("## What fixed it");
   lines.push(rootCause);
   lines.push("");
+  const verification = [...steps]
+    .reverse()
+    .find(
+      (step) =>
+        step.status === "worked" &&
+        getScript(step.scriptId)?.verifies_original_task
+    );
+  if (verification) {
+    lines.push("## What was verified");
+    lines.push(
+      `You confirmed success on “${getScript(verification.scriptId)?.title}”.`
+    );
+    lines.push(
+      caseFile.originalTask ??
+        caseFile.symptom ??
+        "The original problem is no longer happening."
+    );
+    lines.push("");
+  }
 
   return lines.join("\n");
 }

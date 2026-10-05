@@ -5,6 +5,7 @@
 scripts:
   - id: linux.bt.rfkill_list
     version: 1
+    purpose: diagnostic
     title: Check if Bluetooth is blocked
     kind: command
     os:
@@ -50,6 +51,7 @@ scripts:
     tested_on: []
   - id: linux.bt.rfkill_unblock
     version: 1
+    purpose: fix
     title: Switch Bluetooth back on (remove the software block)
     kind: command
     os:
@@ -82,6 +84,7 @@ scripts:
     tested_on: []
   - id: linux.bt.service_status
     version: 1
+    purpose: diagnostic
     title: Check the Bluetooth service
     kind: command
     os:
@@ -127,6 +130,7 @@ scripts:
     tested_on: []
   - id: linux.bt.service_enable
     version: 1
+    purpose: fix
     title: Start the Bluetooth service and keep it on at boot
     kind: command
     os:
@@ -158,6 +162,7 @@ scripts:
     tested_on: []
   - id: linux.bt.service_restart
     version: 1
+    purpose: fix
     title: Restart the Bluetooth service
     kind: command
     os:
@@ -184,6 +189,7 @@ scripts:
     tested_on: []
   - id: linux.bt.controller_show
     version: 1
+    purpose: diagnostic
     title: Check the Bluetooth adapter is powered on
     kind: command
     os:
@@ -232,6 +238,7 @@ scripts:
     tested_on: []
   - id: linux.bt.power_on
     version: 1
+    purpose: fix
     title: Power on the Bluetooth adapter
     kind: command
     os:
@@ -263,6 +270,7 @@ scripts:
     tested_on: []
   - id: linux.bt.usb_list
     version: 1
+    purpose: diagnostic
     title: Look for the Bluetooth hardware
     kind: command
     os:
@@ -292,6 +300,7 @@ scripts:
     tested_on: []
   - id: linux.bt.kernel_log
     version: 1
+    purpose: diagnostic
     title: Check the system log for Bluetooth driver errors
     kind: command
     os:
@@ -330,6 +339,7 @@ scripts:
     tested_on: []
   - id: linux.bt.journal
     version: 1
+    purpose: diagnostic
     title: Read the Bluetooth service log
     kind: command
     os:
@@ -356,6 +366,7 @@ scripts:
     tested_on: []
   - id: linux.bt.reload_driver
     version: 1
+    purpose: fix
     title: Reload the Bluetooth USB driver
     kind: command
     os:
@@ -389,6 +400,7 @@ scripts:
     tested_on: []
   - id: linux.bt.bluez_installed
     version: 1
+    purpose: diagnostic
     title: Check that BlueZ (the Bluetooth software) is installed
     kind: command
     os:
@@ -419,6 +431,7 @@ scripts:
     tested_on: []
   - id: linux.bt.install_bluez
     version: 1
+    purpose: fix
     title: Install BlueZ from Ubuntu's official packages
     kind: command
     os:
@@ -445,6 +458,7 @@ scripts:
     tested_on: []
   - id: manual.linux.bt.hard_block
     version: 1
+    purpose: fix
     title: Turn off the hardware switch for wireless
     kind: manual
     os:
@@ -466,7 +480,7 @@ scripts:
     expect: []
     next:
       - when:
-          status: worked
+          status: ran
         goto: linux.bt.rfkill_list
       - default: ESCALATE
     undo: Press the same key or flip the switch back.
@@ -475,6 +489,8 @@ scripts:
     tested_on: []
   - id: manual.linux.bt.try_connect
     version: 1
+    purpose: verification
+    verifies_original_task: true
     title: Try connecting your Bluetooth device now
     kind: manual
     os:

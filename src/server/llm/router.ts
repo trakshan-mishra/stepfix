@@ -2,7 +2,6 @@ import type { LanguageModelV4 } from "@ai-sdk/provider";
 import {
   streamText,
   stepCountIs,
-  hasToolCall,
   pruneMessages,
   type UIMessageStreamWriter,
   type UIMessage,
@@ -271,7 +270,18 @@ export async function streamTurn(
         maxRetries: 0,
         stopWhen: [
           stepCountIs(req.maxSteps ?? 4),
-          hasToolCall("recommend_step"),
+          ({ steps }) =>
+            steps
+              .at(-1)
+              ?.toolResults.some(
+                (r) =>
+                  [
+                    "recommend_step",
+                    "mark_resolved",
+                    "escalate_to_human"
+                  ].includes(r.toolName) &&
+                  (r.output as { ok?: boolean })?.ok === true
+              ) ?? false,
           ({ steps }) => {
             const last = steps[steps.length - 1];
             return Boolean(

@@ -6,6 +6,7 @@ import {
   stripLookalikeTags
 } from "../guardrails/untrusted";
 import { catalogFor } from "../library/index";
+import { decideNext, workflowState } from "./workflow";
 import technicianPromptText from "./prompts/technician.md?raw";
 import supportPromptText from "./prompts/support.md?raw";
 
@@ -20,28 +21,32 @@ export function buildSystemPrompt(
     technician: technicianPromptText,
     resolved: "You are the stepfix agent. The problem has been resolved.",
     escalated:
-      "You are the stepfix agent. The case has been escalated to a human.",
+      "Troubleshooting has ended. The user has a report to share; nobody has been notified.",
     closed: "You are the stepfix agent. This session is closed."
   };
 
   let prompt = basePrompts[phase];
 
   if (phase === "technician") {
-    const caseJson = JSON.stringify(caseFile, null, 2);
+    const caseJson = wrapUntrusted(JSON.stringify(caseFile, null, 2));
     const stepsTable =
       steps.length === 0
         ? "(none yet)"
         : steps
             .map(
               (s, i) =>
-                `${i + 1}. ${s.scriptId} (${s.status})${s.matchedPatterns.length ? ` matched: ${s.matchedPatterns.join(", ")}` : ""}`
+                `${i + 1}. ${s.scriptId} (${s.status})${s.awaitingEvidence ? " — needs more evidence" : ""}${s.output !== undefined ? `\nResult: ${wrapUntrusted(s.output)}` : " — output not supplied"}`
             )
             .join("\n");
     prompt = prompt
       .replace("{{CASE_JSON}}", caseJson)
       .replace("{{STEPS_TABLE}}", stepsTable)
       .replace("{{CATALOG_SUBSET}}", catalogSubset);
+    prompt += `\nSERVER WORKFLOW\n${JSON.stringify(workflowState({ phase, caseFile, steps }))}\nALLOWED NEXT ACTION\n${JSON.stringify(decideNext({ phase, caseFile, steps }))}`;
   }
+
+  if (phase === "support")
+    prompt += `\nCASE RECORDED SO FAR\n${wrapUntrusted(JSON.stringify(caseFile))}`;
 
   return prompt;
 }

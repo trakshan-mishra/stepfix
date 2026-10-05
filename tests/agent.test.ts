@@ -424,87 +424,45 @@ describe("tool: escalate_to_human", () => {
 });
 
 describe("tool: mark_resolved", () => {
-  it("rejects when last step is pending", async () => {
-    const ctx = makeToolContext({
-      phase: "technician",
-      steps: [makeStep({ status: "pending" })]
-    });
-    const tools = buildTools(ctx);
-    const result = await callTool(tools, "mark_resolved", {
-      rootCause: "test",
-      postconditionMet: true,
-      originalTaskMet: true
-    });
-    expect(result.ok).toBe(false);
+  it("requires successful user confirmation on an original-task verification card", async () => {
+    for (const status of ["pending", "ran", "failed"] as const) {
+      const ctx = makeToolContext({
+        phase: "technician",
+        steps: [makeStep({ scriptId: "manual.linux.bt.try_connect", status })]
+      });
+      expect(
+        await callTool(buildTools(ctx), "mark_resolved", {})
+      ).toMatchObject({ ok: false });
+      expect(ctx.state.phase).toBe("technician");
+    }
   });
 
-  it("accepts when last step is worked and both conditions met", async () => {
+  it("produces a summary from stored verification rather than model claims", async () => {
     const ctx = makeToolContext({
       phase: "technician",
-      steps: [makeStep({ status: "worked" })]
+      caseFile: makeCaseFile({ os: "ubuntu", category: "bluetooth" }),
+      steps: [
+        makeStep({ scriptId: "manual.linux.bt.try_connect", status: "worked" })
+      ]
     });
-    const tools = buildTools(ctx);
-    const result = await callTool(tools, "mark_resolved", {
-      rootCause: "Bluetooth was soft-blocked",
-      postconditionMet: true,
-      originalTaskMet: true
-    });
+    const result = await callTool(buildTools(ctx), "mark_resolved", {});
     expect(result.ok).toBe(true);
     expect(ctx.state.phase).toBe("resolved");
-    const summary = (result as { summary?: string }).summary ?? "";
-    expect(summary).toContain("## What fixed it");
-    expect(summary).toContain("Bluetooth was soft-blocked");
-    expect(summary).toContain("## What we tried");
-    expect(summary).toMatch(/1\. .+: worked/);
+    expect(result.summary).toContain("## What was verified");
+    expect(result.summary).toContain(
+      "No specific repair or root cause was established"
+    );
   });
 
-  it("rejects when postcondition not met", async () => {
+  it("ignores forged booleans on a successful diagnostic check", async () => {
     const ctx = makeToolContext({
       phase: "technician",
       steps: [makeStep({ status: "worked" })]
     });
-    const tools = buildTools(ctx);
-    const result = await callTool(tools, "mark_resolved", {
-      rootCause: "test",
-      postconditionMet: false,
-      originalTaskMet: true
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain("Postcondition not met");
-      expect(result.error).toContain("Continue");
-    }
-    expect(ctx.state.phase).toBe("technician");
-  });
-
-  it("rejects when original task not confirmed", async () => {
-    const ctx = makeToolContext({
-      phase: "technician",
-      steps: [makeStep({ status: "worked" })]
-    });
-    const tools = buildTools(ctx);
-    const result = await callTool(tools, "mark_resolved", {
-      rootCause: "test",
+    const result = await callTool(buildTools(ctx), "mark_resolved", {
+      rootCause: "A made-up diagnosis",
       postconditionMet: true,
-      originalTaskMet: false
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain("Original task not confirmed");
-    }
-    expect(ctx.state.phase).toBe("technician");
-  });
-
-  it("does not escalate when postcondition unmet (continues diagnosis)", async () => {
-    const ctx = makeToolContext({
-      phase: "technician",
-      steps: [makeStep({ status: "ran" })]
-    });
-    const tools = buildTools(ctx);
-    const result = await callTool(tools, "mark_resolved", {
-      rootCause: "test",
-      postconditionMet: false,
-      originalTaskMet: false
+      originalTaskMet: true
     });
     expect(result.ok).toBe(false);
     expect(ctx.state.phase).toBe("technician");

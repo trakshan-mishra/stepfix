@@ -31,7 +31,7 @@ export type Expect = z.infer<typeof ExpectSchema>;
 export const NextConditionSchema = z.object({
   output_matches: z.string().optional(),
   output_empty: z.boolean().optional(),
-  status: z.enum(["worked", "failed", "cant_run"]).optional()
+  status: z.enum(["ran", "worked", "failed", "cant_run"]).optional()
 });
 export type NextCondition = z.infer<typeof NextConditionSchema>;
 
@@ -58,6 +58,8 @@ export const EntrySchema = z.object({
   version: z.number().int().positive(),
   title: z.string(),
   kind: Kind,
+  purpose: z.enum(["diagnostic", "fix", "verification"]).optional(),
+  verifies_original_task: z.boolean().optional(),
   os: z.array(z.string()),
   shell: Shell,
   category: z.string(),

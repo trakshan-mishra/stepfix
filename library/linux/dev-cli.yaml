@@ -5,6 +5,7 @@
 scripts:
   - id: linux.dev.which
     version: 1
+    purpose: diagnostic
     title: Find where a command-line tool is installed
     kind: command
     os:
@@ -51,6 +52,7 @@ scripts:
     tested_on: []
   - id: linux.dev.path
     version: 1
+    purpose: diagnostic
     title: List the folders your shell searches (PATH)
     kind: command
     os:
@@ -77,6 +79,7 @@ scripts:
     tested_on: []
   - id: linux.dev.add_npm_bin_to_path
     version: 1
+    purpose: fix
     title: Add npm's global tools folder to PATH
     kind: command
     os:

@@ -5,7 +5,8 @@ import {
   type CaseFile,
   type Step,
   missingForHandoff,
-  CaseFile as CaseFileSchema
+  CaseFile as CaseFileSchema,
+  type WorkflowState
 } from "./case-file";
 import { catalogFor, getScript, renderCommand } from "../library/index";
 import { buildEscalationReport } from "../report/escalation";
@@ -13,6 +14,7 @@ import { buildResolutionSummary } from "../report/summary";
 import { transition } from "./phases";
 import { wrapUntrusted, truncateForUntrusted } from "../guardrails/untrusted";
 import { scrub } from "../guardrails/scrub";
+import { canRecommend, decideNext, purposeOf, workflowState } from "./workflow";
 
 export interface ToolContext {
   state: {
@@ -21,6 +23,8 @@ export interface ToolContext {
     steps: Step[];
     counters: { userMessages: number; screenshots: number; violations: number };
     reportId?: string;
+    workflow?: WorkflowState;
+    finalArtifact?: { kind: "resolved" | "escalated"; markdown: string };
   };
   setState: (state: ToolContext["state"]) => void;
   sessionId: string;
@@ -60,6 +64,8 @@ export function buildTools(ctx: ToolContext) {
         summary: z.string().max(400).optional()
       }),
       execute: async (input): Promise<ToolResult> => {
+        if (["resolved", "escalated", "closed"].includes(ctx.state.phase))
+          return { ok: false, error: "This session has ended." };
         const cf = { ...ctx.state.caseFile };
         for (const key of [
           "os",
@@ -101,6 +107,8 @@ export function buildTools(ctx: ToolContext) {
         summary: z.string().max(400)
       }),
       execute: async (input): Promise<ToolResult> => {
+        if (ctx.state.phase !== "support")
+          return { ok: false, error: "Triage has already ended." };
         const missing = missingForHandoff(ctx.state.caseFile);
         if (missing.length > 0) {
           return { ok: false, missing };
@@ -159,7 +167,12 @@ export function buildTools(ctx: ToolContext) {
         }
 
         const params = input.params ?? {};
-        const renderResult = renderCommand(script, params);
+        const refusal = canRecommend(ctx.state, input.scriptId);
+        if (refusal) return { ok: false, error: refusal };
+        const renderResult =
+          script.kind === "manual"
+            ? { ok: true as const, command: undefined }
+            : renderCommand(script, params);
         if (!renderResult.ok) {
           return { ok: false, error: renderResult.error };
         }
@@ -180,6 +193,7 @@ export function buildTools(ctx: ToolContext) {
         };
 
         ctx.state.steps.push(step);
+        ctx.state.workflow = workflowState(ctx.state);
         ctx.setState(ctx.state);
 
         const card = {
@@ -193,6 +207,8 @@ export function buildTools(ctx: ToolContext) {
           risk: script.risk,
           needsAdmin: script.needs_admin,
           kind: script.kind,
+          purpose: purposeOf(script),
+          verifiesOriginalTask: script.verifies_original_task,
           command: renderResult.command,
           manualSteps: script.manual_steps,
           deepLink: script.deep_link ?? undefined,
@@ -251,6 +267,8 @@ export function buildTools(ctx: ToolContext) {
         likelyCause: z.string().max(300).optional()
       }),
       execute: async (input): Promise<ToolResult> => {
+        if (["resolved", "escalated", "closed"].includes(ctx.state.phase))
+          return { ok: false, error: "This session has ended." };
         const report = buildEscalationReport({
           sessionId: ctx.sessionId,
           caseFile: ctx.state.caseFile,
@@ -262,6 +280,8 @@ export function buildTools(ctx: ToolContext) {
         ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "escalated");
         ctx.state.reportId = nanoid(12);
+        ctx.state.workflow = workflowState(ctx.state);
+        ctx.state.finalArtifact = { kind: "escalated", markdown: report };
         ctx.setState(ctx.state);
         return {
           ok: true,
@@ -276,49 +296,30 @@ export function buildTools(ctx: ToolContext) {
 
     mark_resolved: tool({
       description:
-        "Mark the problem as resolved. Requires a fresh verified postcondition AND explicit original-task confirmation. An unmet postcondition means continue diagnosis, not escalate.",
-      inputSchema: z.object({
-        rootCause: z.string().max(200),
-        postconditionMet: z.boolean(),
-        originalTaskMet: z.boolean(),
-        fixStepId: z.string().optional()
-      }),
-      execute: async (input): Promise<ToolResult> => {
-        if (!input.postconditionMet) {
+        "Produce a fix summary only when the server has a successful original-task verification recorded from the user.",
+      inputSchema: z.object({}),
+      execute: async (): Promise<ToolResult> => {
+        const decision = decideNext(ctx.state);
+        if (ctx.state.phase !== "technician" || decision.kind !== "resolve")
           return {
             ok: false,
             error:
-              "Postcondition not met. Continue safe bounded diagnosis — do not escalate after every step."
+              "Original task not confirmed by a successful verification card. Continue diagnosis or request its result."
           };
-        }
-        if (!input.originalTaskMet) {
-          return {
-            ok: false,
-            error:
-              "Original task not confirmed. The postcondition may be met but the user's actual goal is not verified."
-          };
-        }
-        const lastStep = ctx.state.steps[ctx.state.steps.length - 1];
-        if (
-          !lastStep ||
-          (lastStep.status !== "ran" && lastStep.status !== "worked")
-        ) {
-          return {
-            ok: false,
-            error: "Last step must be ran or worked before resolving."
-          };
-        }
         ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "resolved");
+        ctx.state.workflow = workflowState(ctx.state);
+        const summary = buildResolutionSummary({
+          caseFile: ctx.state.caseFile,
+          steps: ctx.state.steps,
+          rootCause: decision.rootCause
+        });
+        ctx.state.finalArtifact = { kind: "resolved", markdown: summary };
         ctx.setState(ctx.state);
         return {
           ok: true,
-          rootCause: input.rootCause,
-          summary: buildResolutionSummary({
-            caseFile: ctx.state.caseFile,
-            steps: ctx.state.steps,
-            rootCause: input.rootCause
-          })
+          rootCause: decision.rootCause,
+          summary
         };
       }
     }),
@@ -330,6 +331,8 @@ export function buildTools(ctx: ToolContext) {
         reason: z.string().max(200)
       }),
       execute: async (_input): Promise<ToolResult> => {
+        if (ctx.state.phase !== "technician")
+          return { ok: false, error: "This session is not troubleshooting." };
         ctx.state.caseFile.caseVersion += 1;
         ctx.state.phase = transition(ctx.state.phase as never, "support");
         ctx.setState(ctx.state);
@@ -346,16 +349,20 @@ export function handleStepResult(
   output?: string
 ): { updated: boolean; step?: Step } {
   const step = ctx.state.steps.find((s) => s.stepId === stepId);
-  if (!step || step.status !== "pending") {
+  if (
+    ctx.state.phase !== "technician" ||
+    !step ||
+    step !== ctx.state.steps.at(-1) ||
+    (step.status !== "pending" && !step.awaitingEvidence)
+  ) {
     return { updated: false };
   }
 
-  const scrubbedOutput = output
-    ? truncateForUntrusted(scrub(output).text)
-    : undefined;
+  const scrubbedOutput =
+    output !== undefined ? truncateForUntrusted(scrub(output).text) : undefined;
   const matchedPatterns: string[] = [];
 
-  if (scrubbedOutput) {
+  if (scrubbedOutput !== undefined) {
     const script = getScript(step.scriptId);
     if (script) {
       for (const expect of script.expect) {
@@ -371,10 +378,21 @@ export function handleStepResult(
     }
   }
 
-  step.status = status;
+  const script = getScript(step.scriptId);
+  step.status =
+    status === "worked" && script && !script.verifies_original_task
+      ? "ran"
+      : status;
   step.output = scrubbedOutput;
   step.matchedPatterns = matchedPatterns;
   step.updatedAt = Date.now();
+  step.awaitingEvidence = false;
+  const decision = decideNext(ctx.state);
+  if (decision.kind === "request_output") {
+    step.awaitingEvidence = true;
+    step.clarificationAttempts = (step.clarificationAttempts ?? 0) + 1;
+  }
+  ctx.state.workflow = workflowState(ctx.state);
 
   ctx.setState(ctx.state);
   return { updated: true, step };

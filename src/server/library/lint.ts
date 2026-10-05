@@ -516,6 +516,26 @@ export function lintLibrary(entries: Entry[], flows: Flow[]): LintIssue[] {
     ...checkGotoTargets(entries, allIds),
     ...checkNextCycles(entries),
     ...checkKindConsistency(entries),
+    ...entries.flatMap((e): LintIssue[] => {
+      if (
+        !e.purpose ||
+        (e.verifies_original_task &&
+          (e.purpose !== "verification" ||
+            e.kind !== "manual" ||
+            e.risk !== "read_only"))
+      ) {
+        return [
+          {
+            level: "error",
+            rule: "workflow_metadata",
+            id: e.id,
+            message:
+              "Every entry needs a purpose; original-task verification must be a read-only manual check."
+          }
+        ];
+      }
+      return [];
+    }),
     ...checkUndoRequirement(entries),
     ...checkExplanationLength(entries),
     ...checkExpectRegex(entries),

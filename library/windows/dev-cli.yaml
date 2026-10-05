@@ -5,6 +5,7 @@
 scripts:
   - id: win.dev.where
     version: 1
+    purpose: diagnostic
     title: Find where a command-line tool is installed
     kind: command
     os:
@@ -50,6 +51,7 @@ scripts:
     tested_on: []
   - id: win.dev.path
     version: 1
+    purpose: diagnostic
     title: List the folders Windows searches (PATH)
     kind: command
     os:
@@ -78,6 +80,7 @@ scripts:
     tested_on: []
   - id: manual.win.dev.edit_user_path
     version: 1
+    purpose: fix
     title: Add npm's folder to your PATH (Windows settings)
     kind: manual
     os:
@@ -97,7 +100,7 @@ scripts:
     expect: []
     next:
       - when:
-          status: worked
+          status: ran
         goto: manual.dev.try_again
       - default: ESCALATE
     undo: Open the same window, select that Path entry and click Delete.

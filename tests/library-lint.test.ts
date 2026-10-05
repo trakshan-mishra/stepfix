@@ -23,6 +23,7 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
     version: 1,
     title: "Test entry",
     kind: "command",
+    purpose: "diagnostic",
     os: ["ubuntu"],
     shell: "bash",
     category: "bluetooth",

@@ -5,6 +5,7 @@
 scripts:
   - id: linux.sys.os_release
     version: 1
+    purpose: diagnostic
     title: Show your Linux version
     kind: command
     os:
@@ -35,6 +36,7 @@ scripts:
     tested_on: []
   - id: linux.sys.kernel
     version: 1
+    purpose: diagnostic
     title: Show your kernel version
     kind: command
     os:

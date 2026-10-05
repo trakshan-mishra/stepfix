@@ -129,6 +129,49 @@ export function createMockModel(options?: {
       }
 
       const userText = extractLastUserText(opts?.prompt);
+      const promptMessages = Array.isArray(opts?.prompt) ? opts.prompt : [];
+      const system = promptMessages.find(
+        (message: { role?: string }) => message.role === "system"
+      )?.content;
+      const systemText =
+        typeof system === "string" ? system : JSON.stringify(system ?? "");
+      if (systemText.includes("SERVER WORKFLOW")) {
+        const rawDecision = systemText.split("ALLOWED NEXT ACTION\n")[1];
+        const decision = rawDecision
+          ? (JSON.parse(rawDecision) as {
+              kind: string;
+              fallbackId?: string;
+              scriptId?: string;
+            })
+          : undefined;
+        if (decision?.kind === "wait" || decision?.kind === "request_output")
+          return Promise.resolve(
+            createStreamResult(
+              "This card is a check, not a repair. Share what it prints, or select ‘It printed nothing’, so I can interpret the result."
+            )
+          );
+        const scriptId =
+          decision?.scriptId ??
+          (/connected.*(no websites|nothing|don.t load)/i.test(userText) &&
+          /ubuntu/i.test(userText)
+            ? "linux.net.ping_ip"
+            : decision?.fallbackId);
+        if (scriptId)
+          return Promise.resolve(
+            createStreamResult(
+              "Let’s check the relevant part of the connection first.",
+              {
+                toolCallId: "call-step",
+                toolName: "recommend_step",
+                input: {
+                  scriptId,
+                  whyNow:
+                    "A read-only check will help distinguish the likely causes."
+                }
+              }
+            )
+          );
+      }
 
       if (isOffTopic(userText)) {
         return Promise.resolve(
@@ -186,9 +229,26 @@ export function createMockModel(options?: {
         );
       }
 
+      if (systemText.includes('"os":"unknown"'))
+        return Promise.resolve(
+          createStreamResult("", {
+            toolCallId: "call-case",
+            toolName: "update_case",
+            input: {
+              os,
+              category,
+              symptom: userText.slice(0, 200),
+              originalTask: userText.slice(0, 200),
+              whenStarted: /today|morning|update/i.test(userText)
+                ? "As described by the user"
+                : undefined
+            }
+          })
+        );
+
       return Promise.resolve(
         createStreamResult(
-          `Got it — you're on ${os} with a ${category} issue. Let me note your case and hand you to the Technician.`,
+          `I have the details for your ${category} problem. Let’s start with a check.`,
           {
             toolCallId: "call-ho",
             toolName: "handoff_to_technician",

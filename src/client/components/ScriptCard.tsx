@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Card } from "../../server/agent/case-file";
+import type { Card, Step } from "../../server/agent/case-file";
 
 const RISK_STYLES: Record<string, { bg: string; text: string; label: string }> =
   {
@@ -29,23 +29,31 @@ interface ScriptCardProps {
     output?: string
   ) => void;
   collapsed?: boolean;
+  result?: Step;
+  disabled?: boolean;
 }
 
 export default function ScriptCard({
   card,
   onResult,
-  collapsed
+  collapsed,
+  result,
+  disabled = false
 }: ScriptCardProps) {
   const [showPaste, setShowPaste] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [understood, setUnderstood] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [resultSent, setResultSent] = useState(false);
 
   const risk = RISK_STYLES[card.risk] ?? RISK_STYLES.read_only;
   const isDisruptive = card.risk === "disruptive";
   const canCopy = !isDisruptive || understood;
   const isManual = card.kind === "manual";
+  const isVerification = card.verifiesOriginalTask === true;
+  const isFix = card.purpose === "fix";
+  const resultSent = Boolean(
+    result && result.status !== "pending" && !result.awaitingEvidence
+  );
 
   const handleCopy = () => {
     if (!canCopy || !card.command) return;
@@ -59,13 +67,12 @@ export default function ScriptCard({
     status: "ran" | "worked" | "failed" | "cant_run",
     output?: string
   ) => {
-    if (resultSent) return;
-    setResultSent(true);
+    if (resultSent || disabled) return;
     onResult(card.stepId, status, output);
   };
 
   const handlePasteSubmit = () => {
-    sendResult("ran", pasteText.trim() || undefined);
+    sendResult("ran", pasteText.trim());
     setShowPaste(false);
     setPasteText("");
   };
@@ -189,26 +196,62 @@ export default function ScriptCard({
         </div>
       )}
 
-      <div className="px-4 py-3 flex flex-wrap gap-2">
+      {isDisruptive && isManual && !understood && (
+        <label className="block px-4 py-2 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={understood}
+            onChange={(e) => setUnderstood(e.target.checked)}
+          />{" "}
+          I understand this may interrupt my connection or restart something
+        </label>
+      )}
+      <fieldset
+        disabled={disabled || (isDisruptive && !understood)}
+        className="px-4 py-3 flex flex-wrap gap-2 disabled:opacity-50"
+      >
+        {result?.awaitingEvidence && (
+          <p className="w-full text-sm text-amber-700">
+            More detail is needed. You can add the output here.
+          </p>
+        )}
         {!showPaste ? (
           <>
+            {!isManual && (
+              <>
+                <button
+                  onClick={() => setShowPaste(true)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Paste output
+                </button>
+                <button
+                  onClick={() => sendResult("ran", "")}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700"
+                >
+                  It printed nothing
+                </button>
+              </>
+            )}
             <button
-              onClick={() => setShowPaste(true)}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-            >
-              Paste output
-            </button>
-            <button
-              onClick={() => sendResult("worked")}
+              onClick={() => sendResult(isVerification ? "worked" : "ran")}
               className="px-3 py-1.5 text-sm rounded-lg border border-green-300 text-green-700 hover:bg-green-50"
             >
-              It worked
+              {isVerification
+                ? "Yes, the problem is fixed"
+                : isFix
+                  ? "Done"
+                  : "I ran it"}
             </button>
             <button
               onClick={() => sendResult("failed")}
               className="px-3 py-1.5 text-sm rounded-lg border border-red-300 text-red-700 hover:bg-red-50"
             >
-              Didn't work
+              {isVerification
+                ? "No, it is still broken"
+                : isFix
+                  ? "The step failed"
+                  : "The check failed"}
             </button>
             <button
               onClick={() => sendResult("cant_run")}
@@ -244,7 +287,7 @@ export default function ScriptCard({
             </div>
           </div>
         )}
-      </div>
+      </fieldset>
 
       {card.sources.length > 0 && (
         <div className="px-4 py-2 border-t border-gray-100">

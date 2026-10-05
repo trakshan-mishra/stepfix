@@ -1,4 +1,4 @@
-import { routeAgentRequest } from "agents";
+import { routeAgentRequest, type Connection } from "agents";
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
 import {
   createUIMessageStream,
@@ -15,7 +15,11 @@ import { generateSitemap } from "./server/seo";
 import { verifyToken } from "./server/http/token";
 import { createMockModel } from "./server/llm/mock";
 import { Coordinator } from "./server/agents/coordinator";
-import { buildTools, handleStepResult } from "./server/agent/tools";
+import {
+  buildTools,
+  handleStepResult,
+  type ToolContext
+} from "./server/agent/tools";
 import {
   buildSystemPrompt,
   formatCatalogSubset,
@@ -23,7 +27,19 @@ import {
 } from "./server/agent/prepare-messages";
 import { scanForCommands } from "./server/guardrails/command-scanner";
 import { endsTurn } from "./server/llm/turn-policy";
-import { type CaseFile, type Step, type Phase } from "./server/agent/case-file";
+import {
+  type CaseFile,
+  type Step,
+  type Phase,
+  type WorkflowState,
+  StepResultInput
+} from "./server/agent/case-file";
+import { decideNext, workflowState } from "./server/agent/workflow";
+import {
+  executeWorkflow,
+  resultFromText,
+  writeText
+} from "./server/agent/workflow-response";
 import {
   streamTurn,
   type RouterContext,
@@ -60,9 +76,13 @@ interface SessionState {
   createdAt: number;
   lastActiveAt: number;
   reportId?: string;
+  workflow?: WorkflowState;
+  finalArtifact?: { kind: "resolved" | "escalated"; markdown: string };
 }
 
-const INITIAL_STATE: SessionState = {
+// A fresh object per session: tools mutate steps and the case file in place,
+// and sessions in the same isolate must not share those arrays.
+const initialState = (): SessionState => ({
   phase: "support" as Phase,
   caseFile: { os: "unknown", facts: [], caseVersion: 0 },
   steps: [],
@@ -71,15 +91,22 @@ const INITIAL_STATE: SessionState = {
   privacyMode: false,
   createdAt: 0,
   lastActiveAt: 0
-};
+});
 
 export class SupportSession extends AIChatAgent<Env, SessionState> {
   maxPersistedMessages = 200;
 
+  validateStateChange(_state: SessionState, source: Connection | "server") {
+    if (source !== "server")
+      throw new Error(
+        "Session state is managed by the server. Submit a step result through the chat."
+      );
+  }
+
   onStart() {
     if (!this.state || !this.state.createdAt) {
       this.setState({
-        ...INITIAL_STATE,
+        ...initialState(),
         createdAt: Date.now(),
         lastActiveAt: Date.now()
       });
@@ -92,7 +119,7 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
     if (!this.state) {
       this.setState({
-        ...INITIAL_STATE,
+        ...initialState(),
         createdAt: Date.now(),
         lastActiveAt: Date.now()
       });
@@ -107,29 +134,66 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
     });
 
     const lastMessage = this.messages[this.messages.length - 1];
-    const metadata = lastMessage?.metadata as
-      | Record<string, unknown>
-      | undefined;
-    const kind = metadata?.kind as string | undefined;
-
-    if (kind === "step_result") {
-      const stepId = metadata?.stepId as string;
-      const status = metadata?.status as
-        | "ran"
-        | "worked"
-        | "failed"
-        | "cant_run";
-      const output = metadata?.output as string | undefined;
+    const currentState = () => this.state;
+    const toolContext: ToolContext = {
+      get state() {
+        return currentState();
+      },
+      setState: (s) => this.setState(s as SessionState),
+      sessionId: this.name
+    };
+    const userText =
+      lastMessage?.role === "user"
+        ? lastMessage.parts
+            .filter((p) => p.type === "text")
+            .map((p) => p.text)
+            .join("\n")
+        : "";
+    const submitted = StepResultInput.safeParse(lastMessage?.metadata);
+    const resultInput =
+      lastMessage?.role === "user"
+        ? submitted.success
+          ? submitted.data
+          : resultFromText(toolContext, userText)
+        : undefined;
+    const updated =
+      resultInput &&
       handleStepResult(
-        {
-          state: this.state,
-          setState: (s) => this.setState(s as SessionState),
-          sessionId: this.name
-        },
-        stepId,
-        status,
-        output
+        toolContext,
+        resultInput.stepId,
+        resultInput.status,
+        resultInput.output
+      ).updated;
+    const decision = decideNext(this.state);
+    const reportRequested =
+      /^(stop|stop troubleshooting|give me (a |the )?report|i want (a human|a person)|escalate)[.!]?$/i.test(
+        userText.trim()
       );
+    const mandatory =
+      decision.kind === "terminal" ||
+      decision.kind === "resolve" ||
+      decision.kind === "escalate" ||
+      updated ||
+      reportRequested;
+    if (mandatory) {
+      const stream = createUIMessageStream({
+        execute: async ({ writer }) => {
+          await executeWorkflow(
+            toolContext,
+            writer,
+            reportRequested && decision.kind !== "terminal"
+              ? {
+                  kind: "escalate",
+                  reason:
+                    "You asked to stop troubleshooting and receive a report."
+                }
+              : decision
+          );
+        },
+        onError: () =>
+          "I couldn’t complete that action. Please retry; your recorded results are saved."
+      });
+      return createUIMessageStreamResponse({ stream });
     }
 
     const useMock = (this.env.LLM_MODE as string) === "mock";
@@ -153,11 +217,7 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
       catalogSubset
     );
 
-    const tools = buildTools({
-      state: this.state,
-      setState: (s) => this.setState(s as SessionState),
-      sessionId: this.name
-    });
+    const tools = buildTools(toolContext);
 
     const preparedMessages = prepareMessagesForModel(
       this.messages,
@@ -201,20 +261,23 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
         requests: useMock ? 1 : phase === "support" ? 3 : 2
       },
       // Room for a handoff and the technician's first step in the same turn.
-      maxSteps: useMock ? 1 : 6,
+      maxSteps: 6,
       stopAfterStep: endsTurn,
+      // Rebuild from current state so later steps see the updated case file
+      // and, after a handoff, the technician prompt and catalog.
       systemForStep: () => {
-        if (phase !== "support" || this.state.phase !== "technician") {
-          return undefined;
-        }
+        if (phase !== "support") return undefined;
+        const current = this.state.phase;
         return buildSystemPrompt(
-          "technician",
+          current,
           this.state.caseFile,
           this.state.steps,
-          formatCatalogSubset(
-            this.state.caseFile.os,
-            this.state.caseFile.category ?? "bluetooth"
-          )
+          current === "technician"
+            ? formatCatalogSubset(
+                this.state.caseFile.os,
+                this.state.caseFile.category ?? "bluetooth"
+              )
+            : ""
         );
       }
     };
@@ -224,7 +287,9 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
         let assistantText = "";
         const trackingWriter = {
           write: (chunk: Parameters<typeof writer.write>[0]) => {
-            writer.write(chunk);
+            // The host may append a required card/report after the model's
+            // stream. Only the outer message should finish the response.
+            if (chunk.type !== "finish") writer.write(chunk);
             if (chunk.type === "text-delta") {
               assistantText += (chunk as { delta?: string }).delta ?? "";
             }
@@ -235,21 +300,30 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
 
         if (!result.ok) {
           const reason = !result.ok ? result.reason : "";
-          const pb = playbookReply({
-            phase: phase as Phase,
-            caseFile: this.state.caseFile,
-            steps: this.state.steps,
-            degraded: true
-          });
-          writer.write({ type: "text-start", id: "pb" } as never);
-          writer.write({
-            type: "text-delta",
-            id: "pb",
-            delta: `[backup mode: ${reason}] ${pb.text}`
-          } as never);
-          writer.write({ type: "text-end", id: "pb" } as never);
-          assistantText = pb.text;
+          if (this.state.phase === "technician") {
+            writeText(
+              writer,
+              `[backup mode: ${reason}] I’ll continue using the recorded results and supported steps.`
+            );
+            await executeWorkflow(toolContext, writer);
+          } else if (["resolved", "escalated"].includes(this.state.phase)) {
+            await executeWorkflow(toolContext, writer);
+          } else {
+            const pb = playbookReply({
+              phase: this.state.phase,
+              caseFile: this.state.caseFile,
+              steps: this.state.steps,
+              degraded: true
+            });
+            writeText(writer, `[backup mode: ${reason}] ${pb.text}`);
+          }
+        } else if (this.state.phase === "technician") {
+          const required = decideNext(this.state);
+          if (required.kind !== "wait" && required.kind !== "request_output")
+            await executeWorkflow(toolContext, writer, required);
         }
+
+        this.setState({ ...this.state, workflow: workflowState(this.state) });
 
         const scan = scanForCommands(assistantText);
         if (scan.hit) {
@@ -269,7 +343,7 @@ export class SupportSession extends AIChatAgent<Env, SessionState> {
   }
 
   async executePurge() {
-    this.setState({ ...INITIAL_STATE, createdAt: 0 });
+    this.setState({ ...initialState(), createdAt: 0 });
     try {
       await this.saveMessages(() => []);
     } catch {

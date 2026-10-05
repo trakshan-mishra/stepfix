@@ -5,6 +5,7 @@
 scripts:
   - id: win.sys.os_info
     version: 1
+    purpose: diagnostic
     title: Show your Windows version
     kind: command
     os:

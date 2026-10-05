@@ -5,6 +5,7 @@
 scripts:
   - id: win.bt.devices
     version: 1
+    purpose: diagnostic
     title: List Bluetooth devices and their status
     kind: command
     os:
@@ -46,6 +47,7 @@ scripts:
     tested_on: []
   - id: win.bt.service_status
     version: 1
+    purpose: diagnostic
     title: Check the Bluetooth Support Service
     kind: command
     os:
@@ -81,6 +83,7 @@ scripts:
     tested_on: []
   - id: win.bt.service_set_manual
     version: 1
+    purpose: fix
     title: Allow the Bluetooth service to start
     kind: command
     os:
@@ -108,6 +111,7 @@ scripts:
     tested_on: []
   - id: win.bt.service_start
     version: 1
+    purpose: fix
     title: Start the Bluetooth service
     kind: command
     os:
@@ -137,6 +141,7 @@ scripts:
     tested_on: []
   - id: win.bt.service_restart
     version: 1
+    purpose: fix
     title: Restart the Bluetooth service
     kind: command
     os:
@@ -162,6 +167,7 @@ scripts:
     tested_on: []
   - id: manual.win.bt.quick_settings
     version: 1
+    purpose: fix
     title: Check Airplane mode and the Bluetooth toggle
     kind: manual
     os:
@@ -181,7 +187,7 @@ scripts:
     expect: []
     next:
       - when:
-          status: worked
+          status: ran
         goto: manual.win.bt.try_connect
       - default: manual.win.bt.optional_updates
     undo: Toggle the same switches back.
@@ -190,6 +196,7 @@ scripts:
     tested_on: []
   - id: manual.win.bt.optional_updates
     version: 1
+    purpose: fix
     title: Look for a Bluetooth driver update
     kind: manual
     os:
@@ -209,7 +216,7 @@ scripts:
     expect: []
     next:
       - when:
-          status: worked
+          status: ran
         goto: win.bt.devices
       - default: ESCALATE
     undo: "Settings → Windows Update → Update history → Uninstall updates (for drivers: Device Manager → Roll back driver)."
@@ -218,6 +225,8 @@ scripts:
     tested_on: []
   - id: manual.win.bt.try_connect
     version: 1
+    purpose: verification
+    verifies_original_task: true
     title: Try connecting your Bluetooth device now
     kind: manual
     os:

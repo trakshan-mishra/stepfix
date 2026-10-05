@@ -5,6 +5,7 @@
 scripts:
   - id: common.dev.node_version
     version: 1
+    purpose: diagnostic
     title: Check your Node.js version
     kind: command
     os:
@@ -38,6 +39,7 @@ scripts:
     tested_on: []
   - id: common.dev.npm_prefix
     version: 1
+    purpose: diagnostic
     title: Find where npm installs global tools
     kind: command
     os:

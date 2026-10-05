@@ -5,6 +5,7 @@
 scripts:
   - id: win.net.wlan_interfaces
     version: 1
+    purpose: diagnostic
     title: Check your Wi-Fi connection details
     kind: command
     os:
@@ -46,6 +47,7 @@ scripts:
     tested_on: []
   - id: win.net.adapters
     version: 1
+    purpose: diagnostic
     title: List network adapters
     kind: command
     os:
@@ -76,6 +78,7 @@ scripts:
     tested_on: []
   - id: win.net.enable_adapter
     version: 1
+    purpose: fix
     title: Turn the Wi-Fi adapter back on
     kind: command
     os:
@@ -106,6 +109,7 @@ scripts:
     tested_on: []
   - id: manual.win.net.connect
     version: 1
+    purpose: fix
     title: Connect to your Wi-Fi network
     kind: manual
     os:
@@ -125,7 +129,7 @@ scripts:
     expect: []
     next:
       - when:
-          status: worked
+          status: ran
         goto: win.net.ping_ip
       - default: manual.router_restart
     undo: null
@@ -134,6 +138,7 @@ scripts:
     tested_on: []
   - id: win.net.ping_ip
     version: 1
+    purpose: diagnostic
     title: Test the internet connection by address
     kind: command
     os:
@@ -164,6 +169,7 @@ scripts:
     tested_on: []
   - id: win.net.dns_test
     version: 1
+    purpose: diagnostic
     title: Test that website names resolve (DNS)
     kind: command
     os:
@@ -194,6 +200,7 @@ scripts:
     tested_on: []
   - id: win.net.flush_dns
     version: 1
+    purpose: fix
     title: Clear the DNS cache
     kind: command
     os:
@@ -221,6 +228,7 @@ scripts:
     tested_on: []
   - id: win.net.dns_test_after_flush
     version: 1
+    purpose: verification
     title: Test name lookup again
     kind: command
     os:
@@ -247,6 +255,7 @@ scripts:
     tested_on: []
   - id: win.net.restart_adapter
     version: 1
+    purpose: fix
     title: Restart the Wi-Fi adapter
     kind: command
     os:
@@ -277,6 +286,8 @@ scripts:
     tested_on: []
   - id: manual.win.net.try_browse
     version: 1
+    purpose: verification
+    verifies_original_task: true
     title: Try loading a website
     kind: manual
     os:

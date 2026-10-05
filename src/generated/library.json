@@ -1,12 +1,13 @@
 {
   "version": 1,
-  "compiledAt": "2026-10-04T14:15:48Z",
+  "compiledAt": "2026-10-05T03:45:09Z",
   "entries": [
     {
       "id": "common.dev.node_version",
       "version": 1,
       "title": "Check your Node.js version",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -54,6 +55,7 @@
       "version": 1,
       "title": "Find where npm installs global tools",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -121,6 +123,8 @@
       "version": 1,
       "title": "Try the tool again in a new terminal",
       "kind": "manual",
+      "purpose": "verification",
+      "verifies_original_task": true,
       "os": [
         "ubuntu",
         "debian",
@@ -163,6 +167,7 @@
       "version": 1,
       "title": "Restart your computer",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -199,6 +204,7 @@
       "version": 1,
       "title": "Restart your router",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -222,7 +228,7 @@
       "next": [
         {
           "when": {
-            "status": "worked"
+            "status": "ran"
           },
           "goto": "RESOLVED"
         },
@@ -242,6 +248,7 @@
       "version": 1,
       "title": "Check if Bluetooth is blocked",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -313,6 +320,7 @@
       "version": 1,
       "title": "Switch Bluetooth back on (remove the software block)",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -358,6 +366,7 @@
       "version": 1,
       "title": "Check the Bluetooth service",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -429,6 +438,7 @@
       "version": 1,
       "title": "Start the Bluetooth service and keep it on at boot",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -474,6 +484,7 @@
       "version": 1,
       "title": "Restart the Bluetooth service",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -509,6 +520,7 @@
       "version": 1,
       "title": "Check the Bluetooth adapter is powered on",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -586,6 +598,7 @@
       "version": 1,
       "title": "Power on the Bluetooth adapter",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -631,6 +644,7 @@
       "version": 1,
       "title": "Look for the Bluetooth hardware",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -670,6 +684,7 @@
       "version": 1,
       "title": "Check the system log for Bluetooth driver errors",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -727,6 +742,7 @@
       "version": 1,
       "title": "Read the Bluetooth service log",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -762,6 +778,7 @@
       "version": 1,
       "title": "Reload the Bluetooth USB driver",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -808,6 +825,7 @@
       "version": 1,
       "title": "Check that BlueZ (the Bluetooth software) is installed",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian"
@@ -852,6 +870,7 @@
       "version": 1,
       "title": "Install BlueZ from Ubuntu's official packages",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian"
@@ -886,6 +905,7 @@
       "version": 1,
       "title": "Turn off the hardware switch for wireless",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -906,7 +926,7 @@
       "next": [
         {
           "when": {
-            "status": "worked"
+            "status": "ran"
           },
           "goto": "linux.bt.rfkill_list"
         },
@@ -926,6 +946,8 @@
       "version": 1,
       "title": "Try connecting your Bluetooth device now",
       "kind": "manual",
+      "purpose": "verification",
+      "verifies_original_task": true,
       "os": [
         "ubuntu",
         "debian",
@@ -966,6 +988,7 @@
       "version": 1,
       "title": "Find where a command-line tool is installed",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1028,6 +1051,7 @@
       "version": 1,
       "title": "List the folders your shell searches (PATH)",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1063,6 +1087,7 @@
       "version": 1,
       "title": "Add npm's global tools folder to PATH",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -1119,6 +1144,7 @@
       "version": 1,
       "title": "Show your Linux version",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1160,6 +1186,7 @@
       "version": 1,
       "title": "Show your kernel version",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1195,6 +1222,7 @@
       "version": 1,
       "title": "Check if Wi-Fi is switched on",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1256,6 +1284,7 @@
       "version": 1,
       "title": "Switch Wi-Fi on",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -1291,6 +1320,7 @@
       "version": 1,
       "title": "See the state of your Wi-Fi adapter",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1352,6 +1382,7 @@
       "version": 1,
       "title": "Check if Wi-Fi is blocked",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1403,6 +1434,7 @@
       "version": 1,
       "title": "Remove the software block on Wi-Fi",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -1438,6 +1470,7 @@
       "version": 1,
       "title": "Turn off the hardware switch for Wi-Fi",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -1458,7 +1491,7 @@
       "next": [
         {
           "when": {
-            "status": "worked"
+            "status": "ran"
           },
           "goto": "linux.net.device_status"
         },
@@ -1478,6 +1511,7 @@
       "version": 1,
       "title": "Connect to your Wi-Fi network",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -1498,7 +1532,7 @@
       "next": [
         {
           "when": {
-            "status": "worked"
+            "status": "ran"
           },
           "goto": "linux.net.ping_ip"
         },
@@ -1518,6 +1552,7 @@
       "version": 1,
       "title": "Check your network addresses",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1563,6 +1598,7 @@
       "version": 1,
       "title": "Check the route to the internet",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1604,6 +1640,7 @@
       "version": 1,
       "title": "Test the internet connection by address",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1655,6 +1692,7 @@
       "version": 1,
       "title": "Test that website names resolve (DNS)",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1700,6 +1738,7 @@
       "version": 1,
       "title": "See which DNS servers you're using",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "ubuntu",
         "debian",
@@ -1735,6 +1774,7 @@
       "version": 1,
       "title": "Clear the DNS cache",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -1770,6 +1810,7 @@
       "version": 1,
       "title": "Test name lookup again",
       "kind": "command",
+      "purpose": "verification",
       "os": [
         "ubuntu",
         "debian",
@@ -1815,6 +1856,7 @@
       "version": 1,
       "title": "Restart NetworkManager",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "ubuntu",
         "debian",
@@ -1850,6 +1892,8 @@
       "version": 1,
       "title": "Try loading a website",
       "kind": "manual",
+      "purpose": "verification",
+      "verifies_original_task": true,
       "os": [
         "ubuntu",
         "debian",
@@ -1889,6 +1933,7 @@
       "version": 1,
       "title": "List Bluetooth devices and their status",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -1953,6 +1998,7 @@
       "version": 1,
       "title": "Check the Bluetooth Support Service",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -2007,6 +2053,7 @@
       "version": 1,
       "title": "Allow the Bluetooth service to start",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2045,6 +2092,7 @@
       "version": 1,
       "title": "Start the Bluetooth service",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2089,6 +2137,7 @@
       "version": 1,
       "title": "Restart the Bluetooth service",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2123,6 +2172,7 @@
       "version": 1,
       "title": "Check Airplane mode and the Bluetooth toggle",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2143,7 +2193,7 @@
       "next": [
         {
           "when": {
-            "status": "worked"
+            "status": "ran"
           },
           "goto": "manual.win.bt.try_connect"
         },
@@ -2163,6 +2213,7 @@
       "version": 1,
       "title": "Look for a Bluetooth driver update",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2183,7 +2234,7 @@
       "next": [
         {
           "when": {
-            "status": "worked"
+            "status": "ran"
           },
           "goto": "win.bt.devices"
         },
@@ -2203,6 +2254,8 @@
       "version": 1,
       "title": "Try connecting your Bluetooth device now",
       "kind": "manual",
+      "purpose": "verification",
+      "verifies_original_task": true,
       "os": [
         "windows11",
         "windows10"
@@ -2243,6 +2296,7 @@
       "version": 1,
       "title": "Find where a command-line tool is installed",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -2304,6 +2358,7 @@
       "version": 1,
       "title": "List the folders Windows searches (PATH)",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -2344,6 +2399,7 @@
       "version": 1,
       "title": "Add npm's folder to your PATH (Windows settings)",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2364,7 +2420,7 @@
       "next": [
         {
           "when": {
-            "status": "worked"
+            "status": "ran"
           },
           "goto": "manual.dev.try_again"
         },
@@ -2384,6 +2440,7 @@
       "version": 1,
       "title": "Show your Windows version",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -2422,6 +2479,7 @@
       "version": 1,
       "title": "Check your Wi-Fi connection details",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -2486,6 +2544,7 @@
       "version": 1,
       "title": "List network adapters",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -2530,6 +2589,7 @@
       "version": 1,
       "title": "Turn the Wi-Fi adapter back on",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2571,6 +2631,7 @@
       "version": 1,
       "title": "Connect to your Wi-Fi network",
       "kind": "manual",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2591,7 +2652,7 @@
       "next": [
         {
           "when": {
-            "status": "worked"
+            "status": "ran"
           },
           "goto": "win.net.ping_ip"
         },
@@ -2611,6 +2672,7 @@
       "version": 1,
       "title": "Test the internet connection by address",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -2655,6 +2717,7 @@
       "version": 1,
       "title": "Test that website names resolve (DNS)",
       "kind": "command",
+      "purpose": "diagnostic",
       "os": [
         "windows11",
         "windows10"
@@ -2699,6 +2762,7 @@
       "version": 1,
       "title": "Clear the DNS cache",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2737,6 +2801,7 @@
       "version": 1,
       "title": "Test name lookup again",
       "kind": "command",
+      "purpose": "verification",
       "os": [
         "windows11",
         "windows10"
@@ -2777,6 +2842,7 @@
       "version": 1,
       "title": "Restart the Wi-Fi adapter",
       "kind": "command",
+      "purpose": "fix",
       "os": [
         "windows11",
         "windows10"
@@ -2818,6 +2884,8 @@
       "version": 1,
       "title": "Try loading a website",
       "kind": "manual",
+      "purpose": "verification",
+      "verifies_original_task": true,
       "os": [
         "windows11",
         "windows10"

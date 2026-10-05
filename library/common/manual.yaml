@@ -5,6 +5,8 @@
 scripts:
   - id: manual.dev.try_again
     version: 1
+    purpose: verification
+    verifies_original_task: true
     title: Try the tool again in a new terminal
     kind: manual
     os:
@@ -35,6 +37,7 @@ scripts:
     tested_on: []
   - id: manual.reboot
     version: 1
+    purpose: fix
     title: Restart your computer
     kind: manual
     os:
@@ -62,6 +65,7 @@ scripts:
     tested_on: []
   - id: manual.router_restart
     version: 1
+    purpose: fix
     title: Restart your router
     kind: manual
     os:
@@ -84,7 +88,7 @@ scripts:
     expect: []
     next:
       - when:
-          status: worked
+          status: ran
         goto: RESOLVED
       - default: ESCALATE
     undo: n/a

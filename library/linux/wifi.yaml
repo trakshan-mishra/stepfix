@@ -5,6 +5,7 @@
 scripts:
   - id: linux.net.radio
     version: 1
+    purpose: diagnostic
     title: Check if Wi-Fi is switched on
     kind: command
     os:
@@ -44,6 +45,7 @@ scripts:
     tested_on: []
   - id: linux.net.wifi_on
     version: 1
+    purpose: fix
     title: Switch Wi-Fi on
     kind: command
     os:
@@ -70,6 +72,7 @@ scripts:
     tested_on: []
   - id: linux.net.device_status
     version: 1
+    purpose: diagnostic
     title: See the state of your Wi-Fi adapter
     kind: command
     os:
@@ -109,6 +112,7 @@ scripts:
     tested_on: []
   - id: linux.net.rfkill_wifi
     version: 1
+    purpose: diagnostic
     title: Check if Wi-Fi is blocked
     kind: command
     os:
@@ -143,6 +147,7 @@ scripts:
     tested_on: []
   - id: linux.net.rfkill_unblock_wifi
     version: 1
+    purpose: fix
     title: Remove the software block on Wi-Fi
     kind: command
     os:
@@ -169,6 +174,7 @@ scripts:
     tested_on: []
   - id: manual.linux.net.hard_block
     version: 1
+    purpose: fix
     title: Turn off the hardware switch for Wi-Fi
     kind: manual
     os:
@@ -190,7 +196,7 @@ scripts:
     expect: []
     next:
       - when:
-          status: worked
+          status: ran
         goto: linux.net.device_status
       - default: ESCALATE
     undo: Press the key or flip the switch back.
@@ -199,6 +205,7 @@ scripts:
     tested_on: []
   - id: manual.linux.net.connect
     version: 1
+    purpose: fix
     title: Connect to your Wi-Fi network
     kind: manual
     os:
@@ -220,7 +227,7 @@ scripts:
     expect: []
     next:
       - when:
-          status: worked
+          status: ran
         goto: linux.net.ping_ip
       - default: linux.net.nm_restart
     undo: null
@@ -229,6 +236,7 @@ scripts:
     tested_on: []
   - id: linux.net.addr
     version: 1
+    purpose: diagnostic
     title: Check your network addresses
     kind: command
     os:
@@ -261,6 +269,7 @@ scripts:
     tested_on: []
   - id: linux.net.route
     version: 1
+    purpose: diagnostic
     title: Check the route to the internet
     kind: command
     os:
@@ -291,6 +300,7 @@ scripts:
     tested_on: []
   - id: linux.net.ping_ip
     version: 1
+    purpose: diagnostic
     title: Test the internet connection by address
     kind: command
     os:
@@ -326,6 +336,7 @@ scripts:
     tested_on: []
   - id: linux.net.dns_test
     version: 1
+    purpose: diagnostic
     title: Test that website names resolve (DNS)
     kind: command
     os:
@@ -357,6 +368,7 @@ scripts:
     tested_on: []
   - id: linux.net.dns_status
     version: 1
+    purpose: diagnostic
     title: See which DNS servers you're using
     kind: command
     os:
@@ -383,6 +395,7 @@ scripts:
     tested_on: []
   - id: linux.net.flush_dns
     version: 1
+    purpose: fix
     title: Clear the DNS cache
     kind: command
     os:
@@ -409,6 +422,7 @@ scripts:
     tested_on: []
   - id: linux.net.dns_test_after_flush
     version: 1
+    purpose: verification
     title: Test name lookup again
     kind: command
     os:
@@ -439,6 +453,7 @@ scripts:
     tested_on: []
   - id: linux.net.nm_restart
     version: 1
+    purpose: fix
     title: Restart NetworkManager
     kind: command
     os:
@@ -465,6 +480,8 @@ scripts:
     tested_on: []
   - id: manual.linux.net.try_browse
     version: 1
+    purpose: verification
+    verifies_original_task: true
     title: Try loading a website
     kind: manual
     os:
