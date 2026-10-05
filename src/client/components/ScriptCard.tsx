@@ -174,13 +174,10 @@ export default function ScriptCard({
             <summary className="text-sm font-medium text-gray-700 cursor-pointer">
               What you should see
             </summary>
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-2 space-y-1 list-disc list-inside">
               {card.expect.map((exp, i) => (
                 <li key={i} className="text-sm text-gray-600">
-                  <code className="text-xs bg-gray-100 px-1 rounded">
-                    {exp.pattern}
-                  </code>{" "}
-                  → {exp.meaning}
+                  {exp.meaning}
                 </li>
               ))}
             </ul>
