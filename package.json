@@ -25,7 +25,8 @@
     "lint:library": "tsx scripts/lint-library.ts",
     "compile:library": "tsx scripts/compile-library.ts",
     "eval": "tsx eval/run-eval.ts",
-    "checklist": "tsx scripts/production-checklist.ts"
+    "checklist": "tsx scripts/production-checklist.ts",
+    "demo": "node scripts/demo.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.0",
@@ -62,6 +63,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0",
+    "playwright-core": "^1.63.0",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.19.0",
     "typescript": "^6.0.3",
